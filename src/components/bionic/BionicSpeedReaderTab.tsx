@@ -9,6 +9,7 @@ import {
   Gauge,
   Sliders,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { transformWord, SAMPLE_TEXTS } from "./bionic-transformer";
 
@@ -86,7 +87,10 @@ export function BionicSpeedReaderTab({ initialText }: BionicSpeedReaderTabProps)
           </h2>
         </div>
         <div className="flex items-center gap-3 text-xs text-foreground/80">
-          <span>🎯 Hedef: Göz hareketlerini sıfırlayıp odak hızını maksimuma çıkarmak</span>
+          <span className="inline-flex items-start gap-1.5">
+            <Target className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            Hedef: Göz hareketlerini sıfırlayıp odak hızını maksimuma çıkarmak
+          </span>
         </div>
       </div>
 

@@ -738,7 +738,7 @@ export function ReadingRacePage({
                 )}
               </button>
             </div>
-            <p className="text-[10px] text-gray-400">
+            <p className="text-[11px] text-gray-400">
               İkinci bir sekmede veya cihazda "Koda Katıl" diyerek bu kodu girebilirsiniz.
             </p>
           </div>
@@ -914,14 +914,14 @@ export function ReadingRacePage({
               <div className="text-xl sm:text-2xl font-bold font-mono text-gray-900">
                 {stage1UserWpm} WPM
               </div>
-              <div className="text-[10px] text-gray-500 font-medium">Senin Normal Hızın</div>
+              <div className="text-[11px] text-gray-500 font-medium">Senin Normal Hızın</div>
             </div>
 
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 text-center">
               <div className="text-xl sm:text-2xl font-bold font-mono text-indigo-900">
                 {stage1OpponentWpm > 0 ? `${stage1OpponentWpm} WPM` : "Okuyor..."}
               </div>
-              <div className="text-[10px] text-gray-500 font-medium">Rakibin Normal Hızı</div>
+              <div className="text-[11px] text-gray-500 font-medium">Rakibin Normal Hızı</div>
             </div>
           </div>
 
@@ -970,7 +970,7 @@ export function ReadingRacePage({
                 <span className="text-xs font-semibold uppercase tracking-wider text-gray-900">
                   2. Etap: Biyonik Okuma Yarışı
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-black text-white text-[9px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-black text-white text-[11px] font-bold">
                   BİYONİK MOD
                 </span>
               </div>

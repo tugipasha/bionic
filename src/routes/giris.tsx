@@ -76,7 +76,10 @@ function Auth() {
   return (
     <main className="relative isolate flex min-h-dvh items-center justify-center overflow-hidden bg-background px-6 text-foreground">
       <img
-        src="/bionic-mountain-background.png"
+        src="/bionic-mountain-background.webp"
+        srcSet="/bionic-mountain-background-sm.webp 800w, /bionic-mountain-background.webp 1448w"
+        sizes="100vw"
+        decoding="async"
         alt=""
         className="absolute inset-0 -z-10 h-full w-full object-cover"
       />

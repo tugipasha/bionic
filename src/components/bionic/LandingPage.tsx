@@ -12,9 +12,13 @@ export function LandingPage({ onGoToLogin, onTryNow }: LandingPageProps) {
   const { siteLang, setSiteLang, t } = useSiteLanguage();
 
   return (
-    <div className="relative h-dvh w-screen overflow-hidden bg-black text-white flex flex-col justify-between select-none">
+    <div className="relative h-dvh w-full overflow-hidden bg-black text-white flex flex-col justify-between select-none">
       <img
-        src="/bionic-mountain-background.png"
+        src="/bionic-mountain-background.webp"
+        srcSet="/bionic-mountain-background-sm.webp 800w, /bionic-mountain-background.webp 1448w"
+        sizes="100vw"
+        decoding="async"
+        fetchPriority="high"
         alt=""
         className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
       />

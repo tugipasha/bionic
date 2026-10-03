@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { extractJson, groqChat } from "./groq-core.server";
 
 const requestSchema = z.object({
   dataUrl: z
@@ -24,62 +25,31 @@ export async function analyzeDesignRequest(request: Request) {
 
   if (apiKey) {
     try {
-      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.2-11b-vision-preview",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Bu ${input.width}×${input.height} görseli tam ekran bir ana sayfa arka planı olarak analiz et. Görseldeki ana odağı, güvenli metin alanlarını ve okunabilirliği belirle. Tam olarak üç öneri ver: 16:9 masaüstü, 4:3 tablet ve 9:16 mobil. imageScale değerini 1-2.2, focusX/focusY değerlerini 0-100, titleSizeVw değerini 5-18, titleTopPercent değerini 25-70, shadowOpacity değerini 0-0.7 ve shadowBlurRem değerini 0.5-4 aralığında tut. SADECE geçerli bir JSON nesnesi döndür:
-{
-  "summary": "Görsel analizi özeti",
-  "visualFocus": "Görselin odak noktası",
-  "contrastNote": "Kontrast ve okunabilirlik notu",
-  "recommendations": [
-    {
-      "viewport": "Masaüstü (16:9)",
-      "aspectRatio": "16:9",
-      "imageScale": 1.05,
-      "focusX": 50,
-      "focusY": 45,
-      "titleSizeVw": 10,
-      "titleTopPercent": 38,
-      "shadowOpacity": 0.35,
-      "shadowBlurRem": 1.5,
-      "note": "Öneri açıklaması"
-    }
-  ]
-}`,
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: input.dataUrl },
-                },
-              ],
-            },
-          ],
-          response_format: { type: "json_object" },
-        }),
+      const prompt = `Bu ${input.width}x${input.height} görseli tam ekran bir ana sayfa arka planı olarak analiz et. Görseldeki ana odağı, güvenli metin alanlarını ve okunabilirliği belirle. Tam olarak üç öneri ver: 16:9 masaüstü, 4:3 tablet ve 9:16 mobil. imageScale değerini 1-2.2, focusX/focusY değerlerini 0-100, titleSizeVw değerini 5-18, titleTopPercent değerini 25-70, shadowOpacity değerini 0-0.7 ve shadowBlurRem değerini 0.5-4 aralığında tut. Tüm metin alanlarını Türkçe yaz, emoji kullanma. Sadece geçerli bir JSON nesnesi döndür:
+{"summary":"Görsel analizi özeti","visualFocus":"Görselin odak noktası","contrastNote":"Kontrast ve okunabilirlik notu","recommendations":[{"viewport":"Masaüstü (16:9)","aspectRatio":"16:9","imageScale":1.05,"focusX":50,"focusY":45,"titleSizeVw":10,"titleTopPercent":38,"shadowOpacity":0.35,"shadowBlurRem":1.5,"note":"Öneri açıklaması"}]}`;
+      const { text } = await groqChat({
+        apiKey,
+        task: "vision",
+        json: true,
+        temperature: 0.3,
+        maxTokens: 1200,
+        timeoutMs: 45_000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: input.dataUrl } },
+            ],
+          },
+        ],
       });
-
-      if (groqRes.ok) {
-        const data = await groqRes.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) {
-          const parsed = JSON.parse(content);
-          return Response.json(parsed);
-        }
+      const parsed = extractJson<{ recommendations?: unknown[] }>(text);
+      if (parsed && Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
+        return Response.json(parsed);
       }
     } catch (e) {
-      console.warn("Groq vision analysis failed, falling back to heuristics:", e);
+      console.warn("Groq görsel analizi başarısız, sezgisel sonuca dönülüyor:", e);
     }
   }
 

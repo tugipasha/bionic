@@ -154,7 +154,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             <div className="text-2xl sm:text-3xl font-display font-semibold text-gray-900">
               {stats.totalTests}
             </div>
-            <div className="text-[10px] sm:text-[11px] font-medium text-gray-500">Toplam Test</div>
+            <div className="text-[11px] sm:text-[11px] font-medium text-gray-500">Toplam Test</div>
           </div>
 
           <button
@@ -186,7 +186,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-gray-700">Ort. Normal Hız</span>
-                <p className="text-[10px] sm:text-[11px] text-gray-400 leading-tight">
+                <p className="text-[11px] sm:text-[11px] text-gray-400 leading-tight">
                   Standart metinlerde ortalama hızınız
                 </p>
               </div>
@@ -211,11 +211,11 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                     <path d="M 2 18 Q 15 5, 30 14 T 60 4 T 78 8" />
                   </svg>
                 ) : (
-                  <span className="text-[10px] text-gray-300 font-mono">-</span>
+                  <span className="text-[11px] text-gray-300 font-mono">-</span>
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+              <div className="flex items-center justify-between text-[11px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
                 <span className="text-emerald-600 font-semibold">
                   {stats.totalTests > 0 ? `Ort. ${stats.avgNormalWpm} WPM` : "-"}
                 </span>
@@ -229,7 +229,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-gray-700">Ort. Bionic Hız</span>
-                <p className="text-[10px] sm:text-[11px] text-gray-400 leading-tight">
+                <p className="text-[11px] sm:text-[11px] text-gray-400 leading-tight">
                   BionicText ile ortalama hızınız
                 </p>
               </div>
@@ -254,11 +254,11 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                     <path d="M 2 16 Q 15 2, 30 10 T 60 2 T 78 5" />
                   </svg>
                 ) : (
-                  <span className="text-[10px] text-gray-300 font-mono">-</span>
+                  <span className="text-[11px] text-gray-300 font-mono">-</span>
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+              <div className="flex items-center justify-between text-[11px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
                 <span className="text-emerald-600 font-semibold">
                   {stats.totalTests > 0 ? `Ort. ${stats.avgBionicWpm} WPM` : "-"}
                 </span>
@@ -272,7 +272,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-gray-700">Ortalama İyileşme</span>
-                <p className="text-[10px] sm:text-[11px] text-gray-400 leading-tight">
+                <p className="text-[11px] sm:text-[11px] text-gray-400 leading-tight">
                   Biyonik okuma hız artış oranı
                 </p>
               </div>
@@ -292,7 +292,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+              <div className="flex items-center justify-between text-[11px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
                 <span className="text-emerald-600 font-semibold">
                   {stats.avgImprovement > 0 ? `+${stats.avgImprovement}%` : "0%"}
                 </span>
@@ -306,7 +306,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-gray-700">En İyi İyileşme</span>
-                <p className="text-[10px] sm:text-[11px] text-gray-400 leading-tight">
+                <p className="text-[11px] sm:text-[11px] text-gray-400 leading-tight">
                   Tek bir testteki en yüksek artış
                 </p>
               </div>
@@ -326,7 +326,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+              <div className="flex items-center justify-between text-[11px] sm:text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
                 <span className="text-emerald-600 font-semibold">
                   {stats.bestImprovement.percentage > 0
                     ? `+${stats.bestImprovement.percentage}%`
@@ -412,7 +412,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
         {/* SVG Chart Area */}
         <div className="relative w-full pt-3 sm:pt-4 min-h-[200px] sm:min-h-[220px]">
           {/* Y Axis Grid Lines */}
-          <div className="space-y-4 sm:space-y-5 text-[9px] sm:text-[10px] font-mono text-gray-400">
+          <div className="space-y-4 sm:space-y-5 text-[11px] sm:text-[10px] font-mono text-gray-400">
             {[400, 350, 300, 250, 200, 150, 100].map((wpm) => (
               <div key={wpm} className="flex items-center gap-2 sm:gap-3">
                 <span className="w-10 sm:w-14 text-right shrink-0">{wpm} WPM</span>
@@ -483,7 +483,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                       x={pt.x}
                       y={pt.y - 12}
                       textAnchor="middle"
-                      className="text-[10px] font-semibold fill-gray-700 select-none"
+                      className="text-[11px] font-semibold fill-gray-700 select-none"
                     >
                       +{pt.imp}%
                     </text>
@@ -506,11 +506,12 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                   <div className="rounded-2xl bg-[#0f172a] text-white p-2.5 sm:p-3 shadow-xl text-xs space-y-1 min-w-[140px]">
                     <div className="font-semibold text-gray-200 border-b border-gray-700/60 pb-1 flex justify-between">
                       <span>Test {displayedHistory[hoveredTestIndex].testNumber}</span>
-                      <span className="text-emerald-400 font-medium">
-                        ↗ +{displayedHistory[hoveredTestIndex].improvementPercentage}%
+                      <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                        <TrendingUp className="size-3" aria-hidden="true" />+
+                        {displayedHistory[hoveredTestIndex].improvementPercentage}%
                       </span>
                     </div>
-                    <div className="space-y-0.5 text-[10px] sm:text-[11px]">
+                    <div className="space-y-0.5 text-[11px] sm:text-[11px]">
                       <div className="flex justify-between">
                         <span className="text-gray-400">BionicText:</span>
                         <span className="font-semibold">
@@ -529,7 +530,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
               )}
 
               {/* X Axis Labels */}
-              <div className="flex justify-between pl-12 sm:pl-16 pt-3 text-[10px] sm:text-[11px] font-mono text-gray-400">
+              <div className="flex justify-between pl-12 sm:pl-16 pt-3 text-[11px] sm:text-[11px] font-mono text-gray-400">
                 {displayedHistory.map((item) => (
                   <span key={item.id}>T{item.testNumber}</span>
                 ))}
@@ -577,14 +578,14 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
               <div className="text-xl sm:text-2xl font-display font-semibold text-gray-900">
                 {stats.maxSpeed.wpm > 0 ? `${stats.maxSpeed.wpm} WPM` : "-"}
               </div>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed">
+              <p className="text-[11px] sm:text-[11px] text-gray-400 leading-relaxed">
                 {stats.maxSpeed.testNumber > 0
                   ? `Test ${stats.maxSpeed.testNumber}'te BionicText ile ulaştığınız hız.`
                   : "Henüz test bulunmuyor."}
               </p>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
               <span className="text-emerald-600 font-semibold">
                 {stats.maxSpeed.improvement > 0 ? `+${stats.maxSpeed.improvement}%` : "-"}
               </span>
@@ -607,14 +608,14 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                   ? `+${stats.bestImprovement.percentage}%`
                   : "-"}
               </div>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed">
+              <p className="text-[11px] sm:text-[11px] text-gray-400 leading-relaxed">
                 {stats.bestImprovement.testNumber > 0
                   ? `Test ${stats.bestImprovement.testNumber}'teki en yüksek artışınız.`
                   : "Henüz test bulunmuyor."}
               </p>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
               <span className="text-emerald-600 font-semibold">
                 {stats.bestImprovement.percentage > 0
                   ? `+${stats.bestImprovement.percentage}%`
@@ -639,14 +640,14 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
               <div className="text-xl sm:text-2xl font-display font-semibold text-gray-900">
                 {stats.consistency.score > 0 ? `+${stats.consistency.score}%` : "-"}
               </div>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed">
+              <p className="text-[11px] sm:text-[11px] text-gray-400 leading-relaxed">
                 {stats.totalTests > 0
                   ? `${stats.consistency.range} arasında en dengeli gelişim aralığı.`
                   : "Henüz test bulunmuyor."}
               </p>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-gray-500 border-t border-gray-50 pt-2 font-medium">
               <span className="text-emerald-600 font-semibold">
                 {stats.consistency.score > 0 ? `+${stats.consistency.score}%` : "-"}
               </span>
@@ -676,7 +677,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
             {stats.recentTests.length > 0 ? (
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-[10px] sm:text-[11px] text-gray-400 font-medium border-b border-gray-50">
+                  <tr className="text-[11px] sm:text-[11px] text-gray-400 font-medium border-b border-gray-50">
                     <th className="pb-2 font-normal">Test</th>
                     <th className="pb-2 font-normal">Tarih</th>
                     <th className="pb-2 font-normal">Normal</th>
@@ -690,13 +691,13 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
                       <td className="py-2 font-semibold text-gray-900 font-sans">
                         #{row.testNumber}
                       </td>
-                      <td className="py-2 text-gray-500 font-sans text-[10px] truncate max-w-[90px] sm:max-w-none">
+                      <td className="py-2 text-gray-500 font-sans text-[11px] truncate max-w-[90px] sm:max-w-none">
                         {row.date.split(" ")[0]}
                       </td>
                       <td className="py-2 text-gray-700">{row.normalWpm}</td>
                       <td className="py-2 font-semibold text-gray-900">{row.bionicWpm}</td>
                       <td className="py-2 text-right font-sans">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px]">
                           +{row.improvementPercentage}%
                         </span>
                       </td>

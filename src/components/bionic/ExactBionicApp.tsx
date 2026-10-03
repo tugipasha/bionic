@@ -40,7 +40,7 @@ import { ProfilePage } from "./ProfilePage";
 import { SettingsPage } from "./SettingsPage";
 import { logReadingActivity } from "@/lib/supabase-db";
 import { getUserSettings, applySettingsToDOM, type UserSettings } from "@/lib/user-settings-store";
-import { SiteLanguageSwitcher } from "./SiteLanguageSwitcher";
+import { SiteLanguageSwitcher, LangBadge } from "./SiteLanguageSwitcher";
 import { translateWithMyMemory, resolveLanguage } from "@/lib/translate-core";
 import {
   SITE_LANGUAGES,
@@ -103,6 +103,16 @@ export function ExactBionicApp({
   const [isReaderModalOpen, setIsReaderModalOpen] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // Mobil menü açıkken arka planın kaymasını engelle
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileMenuOpen]);
 
   // Dropdown states
   const [sourceDropdownOpen, setSourceDropdownOpen] = useState<boolean>(false);
@@ -261,7 +271,7 @@ export function ExactBionicApp({
     setSourceLang(newSource);
     setTargetLang(code);
     if (sourceText.trim()) handleTranslate(sourceText, newSource, code);
-    toast.success(t("toast.langChanged", code, { lang: `${meta.flag} ${meta.nativeName}` }));
+    toast.success(t("toast.langChanged", code, { lang: meta.nativeName }));
   };
 
   // Language Swap
@@ -401,9 +411,9 @@ export function ExactBionicApp({
 
   if (isDashboardLayout) {
     return (
-      <div className="min-h-screen w-full bg-[#f4f5f7] text-gray-900 flex flex-col md:flex-row font-sans selection:bg-black selection:text-white">
+      <div className="min-h-dvh w-full bg-[#f4f5f7] text-gray-900 flex flex-col md:flex-row font-sans selection:bg-black selection:text-white">
         {/* DESKTOP SIDEBAR */}
-        <aside className="hidden md:flex w-64 bg-transparent p-6 lg:p-8 flex-col justify-between shrink-0 border-r border-gray-200/70 sticky top-0 h-screen">
+        <aside className="hidden md:flex w-64 bg-transparent p-6 lg:p-8 flex-col justify-between shrink-0 border-r border-gray-200/70 sticky top-0 h-dvh">
           <div className="space-y-8">
             <div
               onClick={() => setActiveTab("translate")}
@@ -479,7 +489,7 @@ export function ExactBionicApp({
         </aside>
 
         {/* MOBILE TOPBAR IN DASHBOARD */}
-        <div className="md:hidden flex items-center justify-between p-4 bg-white/95 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-40">
+        <div className="md:hidden flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] bg-white/95 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-40">
           <div
             onClick={() => setActiveTab("translate")}
             className="font-display text-xl font-light tracking-tight text-gray-900 cursor-pointer"
@@ -517,7 +527,7 @@ export function ExactBionicApp({
         {/* MOBILE DRAWER OVERLAY */}
         {mobileMenuOpen && (
           <div className="md:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-150">
-            <div className="bg-white rounded-t-3xl p-6 space-y-4 max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div className="bg-white rounded-t-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4 max-h-[85dvh] overflow-y-auto overscroll-contain shadow-2xl">
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <span className="font-display text-lg font-medium text-gray-900">
                   {t("nav.menu", siteLang)}
@@ -631,7 +641,7 @@ export function ExactBionicApp({
                     </div>
                     <div className="overflow-hidden text-xs">
                       <div className="font-semibold text-gray-900 truncate">{userEmail}</div>
-                      <div className="text-[10px] text-gray-500 font-medium">
+                      <div className="text-[11px] text-gray-500 font-medium">
                         {t("user.account", siteLang)}
                       </div>
                     </div>
@@ -690,7 +700,7 @@ export function ExactBionicApp({
             </div>
           </header>
 
-          <main className="p-4 sm:p-6 lg:p-10 flex-1 pb-24 md:pb-10 max-w-7xl w-full mx-auto">
+          <main className="p-4 sm:p-6 lg:p-10 flex-1 pb-safe-nav md:pb-10 max-w-7xl w-full mx-auto">
             {activeTab === "profile" && (
               <ProfilePage
                 userEmail={userEmail}
@@ -708,31 +718,31 @@ export function ExactBionicApp({
         </div>
 
         {/* MOBILE BOTTOM NAVIGATION BAR FOR DASHBOARD */}
-        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/80 px-2 py-2 z-40 flex items-center justify-around shadow-lg safe-area-bottom">
+        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/80 px-2 pt-2 z-40 flex items-center justify-around shadow-lg safe-area-bottom">
           <button
             onClick={() => setActiveTab("translate")}
-            className="flex flex-col items-center gap-1 p-2 text-[10px] text-gray-500 hover:text-black font-medium"
+            className="flex flex-col items-center gap-1 p-2 text-[11px] text-gray-500 hover:text-black font-medium"
           >
             <Home className="size-4" />
             <span>{t("nav.translate", siteLang)}</span>
           </button>
           <button
             onClick={() => setActiveTab("test")}
-            className="flex flex-col items-center gap-1 p-2 text-[10px] text-gray-500 hover:text-black font-medium"
+            className="flex flex-col items-center gap-1 p-2 text-[11px] text-gray-500 hover:text-black font-medium"
           >
             <FileText className="size-4" />
             <span>{t("nav.testShort", siteLang)}</span>
           </button>
           <button
             onClick={() => setActiveTab("assistant")}
-            className="flex flex-col items-center gap-1 p-2 text-[10px] text-gray-500 hover:text-black font-medium"
+            className="flex flex-col items-center gap-1 p-2 text-[11px] text-gray-500 hover:text-black font-medium"
           >
             <Zap className="size-4" />
             <span>AI</span>
           </button>
           <button
             onClick={() => setActiveTab("profile")}
-            className={`flex flex-col items-center gap-1 p-2 text-[10px] font-semibold ${
+            className={`flex flex-col items-center gap-1 p-2 text-[11px] font-semibold ${
               activeTab === "profile" ? "text-black" : "text-gray-500"
             }`}
           >
@@ -741,7 +751,7 @@ export function ExactBionicApp({
           </button>
           <button
             onClick={() => setActiveTab("settings")}
-            className={`flex flex-col items-center gap-1 p-2 text-[10px] font-semibold ${
+            className={`flex flex-col items-center gap-1 p-2 text-[11px] font-semibold ${
               activeTab === "settings" ? "text-black" : "text-gray-500"
             }`}
           >
@@ -755,17 +765,20 @@ export function ExactBionicApp({
 
   // STANDARD RESPONSIVE WORKSPACE VIEW (Translate / Test / Exercises / Race / Assistant)
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#e5e5e7] text-gray-900 flex flex-col justify-between selection:bg-black selection:text-white">
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-[#e5e5e7] text-gray-900 flex flex-col justify-between selection:bg-black selection:text-white">
       {/* BACKGROUND MOUNTAIN WITH HALO */}
       <img
-        src="/bionic-mountain-background.png"
+        src="/bionic-mountain-background.webp"
+        srcSet="/bionic-mountain-background-sm.webp 800w, /bionic-mountain-background.webp 1448w"
+        sizes="100vw"
+        decoding="async"
         alt="BionicText Mountain Background"
         className="fixed inset-0 h-full w-full object-cover object-center pointer-events-none opacity-80 mix-blend-multiply"
       />
       <div className="fixed inset-0 bg-radial from-transparent via-black/5 to-black/20 pointer-events-none" />
 
       {/* TOP NAVBAR */}
-      <header className="relative z-30 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-3.5 sm:py-5 flex items-center justify-between">
+      <header className="relative z-30 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3.5 sm:py-5 flex items-center justify-between">
         {/* Brand Logo */}
         <div
           onClick={() => setActiveTab("translate")}
@@ -857,7 +870,7 @@ export function ExactBionicApp({
                       <div className="text-xs font-semibold text-gray-900 truncate">
                         {userEmail}
                       </div>
-                      <div className="text-[10px] text-gray-500 font-medium">
+                      <div className="text-[11px] text-gray-500 font-medium">
                         {t("user.account", siteLang)}
                       </div>
                     </div>
@@ -929,7 +942,7 @@ export function ExactBionicApp({
       </header>
 
       {/* MAIN BODY */}
-      <main className="w-full max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 z-10 flex-1 flex flex-col justify-center pb-24 lg:pb-6">
+      <main className="w-full max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 z-10 flex-1 flex flex-col justify-center pb-safe-nav lg:pb-6">
         {activeTab !== "translate" ? (
           <div className="py-1 sm:py-2">
             {activeTab === "test" && (
@@ -965,7 +978,6 @@ export function ExactBionicApp({
                     }}
                     className="w-full sm:w-auto flex items-center justify-between gap-1.5 sm:gap-2 px-3 py-2 sm:px-3.5 sm:py-1.5 rounded-full border border-gray-200 bg-gray-50/90 hover:bg-white hover:border-gray-300 text-xs sm:text-sm font-medium text-gray-900 transition-all shadow-2xs active:scale-98"
                   >
-                    <span className="text-base sm:text-sm">{currentSource.flag}</span>
                     <span className="font-semibold truncate max-w-[85px] sm:max-w-none">
                       {currentSource.nativeName}
                     </span>
@@ -1011,7 +1023,7 @@ export function ExactBionicApp({
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <span>{lang.flag}</span>
+                              <LangBadge code={lang.code} />
                               <span className="truncate">{lang.nativeName}</span>
                             </div>
                             {sourceLang === lang.code && <Check className="size-3.5 text-black" />}
@@ -1043,7 +1055,6 @@ export function ExactBionicApp({
                     }}
                     className="w-full sm:w-auto flex items-center justify-between gap-1.5 sm:gap-2 px-3 py-2 sm:px-3.5 sm:py-1.5 rounded-full border border-gray-200 bg-gray-50/90 hover:bg-white hover:border-gray-300 text-xs sm:text-sm font-medium text-gray-900 transition-all shadow-2xs active:scale-98"
                   >
-                    <span className="text-base sm:text-sm">{currentTarget.flag}</span>
                     <span className="font-semibold truncate max-w-[85px] sm:max-w-none">
                       {currentTarget.nativeName}
                     </span>
@@ -1089,7 +1100,7 @@ export function ExactBionicApp({
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <span>{lang.flag}</span>
+                              <LangBadge code={lang.code} />
                               <span className="truncate">{lang.nativeName}</span>
                             </div>
                             {targetLang === lang.code && <Check className="size-3.5 text-black" />}
@@ -1370,7 +1381,7 @@ export function ExactBionicApp({
       </footer>
 
       {/* MOBILE BOTTOM NAVIGATION (App-like 1-thumb switcher) */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-xl border-t border-gray-200/90 px-1 py-1.5 z-40 flex items-center justify-around shadow-2xl safe-area-bottom">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-xl border-t border-gray-200/90 px-1 pt-1.5 z-40 flex items-center justify-around shadow-2xl safe-area-bottom">
         <button
           type="button"
           onClick={() => setActiveTab("translate")}
@@ -1381,7 +1392,7 @@ export function ExactBionicApp({
           }`}
         >
           <Home className="size-4" />
-          <span className="text-[10px]">{t("nav.translate", siteLang)}</span>
+          <span className="text-[11px]">{t("nav.translate", siteLang)}</span>
         </button>
 
         <button
@@ -1394,7 +1405,7 @@ export function ExactBionicApp({
           }`}
         >
           <FileText className="size-4" />
-          <span className="text-[10px]">{t("nav.testShort", siteLang)}</span>
+          <span className="text-[11px]">{t("nav.testShort", siteLang)}</span>
         </button>
 
         <button
@@ -1407,7 +1418,7 @@ export function ExactBionicApp({
           }`}
         >
           <Zap className="size-4" />
-          <span className="text-[10px]">{t("nav.race", siteLang)}</span>
+          <span className="text-[11px]">{t("nav.race", siteLang)}</span>
         </button>
 
         <button
@@ -1420,7 +1431,7 @@ export function ExactBionicApp({
           }`}
         >
           <Zap className="size-4" />
-          <span className="text-[10px]">AI</span>
+          <span className="text-[11px]">AI</span>
         </button>
 
         <button
@@ -1429,7 +1440,7 @@ export function ExactBionicApp({
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-xl transition-all ${"text-gray-500 hover:text-gray-900"}`}
         >
           <User className="size-4" />
-          <span className="text-[10px]">{t("nav.profileShort", siteLang)}</span>
+          <span className="text-[11px]">{t("nav.profileShort", siteLang)}</span>
         </button>
       </nav>
 

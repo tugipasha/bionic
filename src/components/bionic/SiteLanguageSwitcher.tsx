@@ -2,6 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Globe, Search } from "lucide-react";
 import { SITE_LANGUAGES, getLanguageMeta, t } from "@/lib/i18n";
 
+/** Emoji yerine kullanılan, dil koduyla yazılmış küçük rozet. */
+export function LangBadge({ code, className = "" }: { code: string; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex h-5 min-w-6 shrink-0 items-center justify-center rounded bg-gray-100 px-1 text-[11px] font-bold uppercase leading-none text-gray-600 ${className}`}
+    >
+      {code}
+    </span>
+  );
+}
+
 interface Props {
   siteLang: string;
   onSelect: (code: string) => void;
@@ -56,7 +68,6 @@ export function SiteLanguageSwitcher({ siteLang, onSelect, variant = "light" }: 
         }`}
       >
         <Globe className="size-3.5 sm:size-4 opacity-70" />
-        <span className="text-sm sm:text-base leading-none">{current.flag}</span>
         <span className="hidden md:inline font-semibold text-xs">{current.nativeName}</span>
         <span className="md:hidden font-bold text-xs uppercase">{current.code}</span>
         <ChevronDown
@@ -68,7 +79,7 @@ export function SiteLanguageSwitcher({ siteLang, onSelect, variant = "light" }: 
         <div className="absolute end-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-3xl border border-gray-200 bg-white p-3 text-gray-900 shadow-2xl flex flex-col gap-2">
           <div className="flex items-center justify-between px-1 pb-1 border-b border-gray-100">
             <span className="text-xs font-bold">{t("select.language", siteLang)}</span>
-            <span className="text-[10px] text-gray-400 font-mono">
+            <span className="text-[11px] text-gray-400 font-mono">
               {t("lang.count", siteLang, { n: SITE_LANGUAGES.length })}
             </span>
           </div>
@@ -106,11 +117,14 @@ export function SiteLanguageSwitcher({ siteLang, onSelect, variant = "light" }: 
                   }`}
                 >
                   <span className="flex items-center gap-2 min-w-0">
-                    <span className="text-base">{lang.flag}</span>
+                    <LangBadge
+                      code={lang.code}
+                      className={selected ? "bg-white/20 text-white" : ""}
+                    />
                     <span className="min-w-0">
                       <span className="block font-medium truncate">{lang.nativeName}</span>
                       <span
-                        className={`block text-[10px] truncate ${selected ? "text-gray-300" : "text-gray-400"}`}
+                        className={`block text-[11px] truncate ${selected ? "text-gray-300" : "text-gray-400"}`}
                       >
                         {lang.name}
                       </span>

@@ -20,6 +20,8 @@ import {
   Zap,
   BookmarkPlus,
   RefreshCw,
+  BarChart3,
+  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -243,17 +245,20 @@ export function BionicConverterTab({
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/5 px-3 py-1 text-xs text-foreground/80">
-            📊 {stats.words.toLocaleString()} kelime · {stats.chars.toLocaleString()} karakter
+            <BarChart3 className="size-3.5" aria-hidden="true" />
+            {stats.words.toLocaleString()} kelime · {stats.chars.toLocaleString()} karakter
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/5 px-3 py-1 text-xs text-foreground/80">
-            ⏱️ Biyonik Süre: <strong>{stats.readingTimeBionicMin} dk</strong> (Normal:{" "}
+            <Timer className="size-3.5" aria-hidden="true" />
+            Biyonik Süre: <strong>{stats.readingTimeBionicMin} dk</strong> (Normal:{" "}
             {stats.readingTimeNormalMin} dk)
           </span>
 
           {stats.savedSeconds > 0 && (
             <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300">
-              ⚡ Kazanç: ~{stats.savedSeconds} sn
+              <Zap className="size-3 shrink-0" aria-hidden="true" />
+              Kazanç: ~{stats.savedSeconds} sn
             </span>
           )}
         </div>

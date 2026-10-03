@@ -22,6 +22,7 @@ import {
   Layers,
   ChevronRight,
   Wifi,
+  ArrowRight,
 } from "lucide-react";
 import { convertToBionicHtml } from "./bionic-transformer";
 import { saveTestResult } from "@/lib/reading-stats-store";
@@ -338,7 +339,11 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
         };
 
         setCustomArticle(generatedArticle);
-        toast.success("Metinler Groq ile başarıyla üretildi.");
+        if (data.fallback) {
+          toast.warning("Yapay zeka şu an ulaşılamıyor; örnek bir metin hazırlandı.");
+        } else {
+          toast.success("Metinler yapay zeka ile hazırlandı.");
+        }
         setTestState("selection");
       } else {
         throw new Error(data.error || "Metin oluşturulurken bir hata oluştu.");
@@ -450,7 +455,10 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
           {/* Background image overlay */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none mix-blend-luminosity scale-105"
-            style={{ backgroundImage: "url('/bionic-mountain-background.png')" }}
+            style={{
+              backgroundImage:
+                "image-set(url('/bionic-mountain-background-sm.webp') 1x, url('/bionic-mountain-background.webp') 2x)",
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#090e17]/60 via-[#090e17]/80 to-[#090e17] pointer-events-none" />
 
@@ -672,7 +680,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                         <div className="text-xs font-semibold text-gray-900">
                           Özel Konuda Metin Hazırla
                         </div>
-                        <p className="text-[10px] text-gray-500">
+                        <p className="text-[11px] text-gray-500">
                           İstediğin konuda 2 aşamalı metin oluştur.
                         </p>
                       </div>
@@ -694,7 +702,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                         <button
                           type="button"
                           onClick={() => setCustomArticle(null)}
-                          className="text-[10px] font-semibold text-gray-600 hover:underline shrink-0 ml-2"
+                          className="text-[11px] font-semibold text-gray-600 hover:underline shrink-0 ml-2"
                         >
                           Hazır Metinlere Dön
                         </button>
@@ -731,7 +739,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                             <span className="font-semibold text-gray-900 truncate">
                               {currentCategory.name}
                             </span>
-                            <span className="text-gray-400 font-mono text-[10px] sm:text-[11px] shrink-0">
+                            <span className="text-gray-400 font-mono text-[11px] sm:text-[11px] shrink-0">
                               ({currentCategory.countText})
                             </span>
                           </div>
@@ -776,7 +784,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                                     <span className="truncate">{cat.name}</span>
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                                    <span className="text-[10px] font-mono text-gray-400">
+                                    <span className="text-[11px] font-mono text-gray-400">
                                       {cat.countText}
                                     </span>
                                     {isSelected && <Check className="size-3 text-black" />}
@@ -819,7 +827,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                             <span className="font-semibold text-gray-900 truncate">
                               {currentArticle.title}
                             </span>
-                            <span className="text-gray-400 font-mono text-[10px] sm:text-[11px] shrink-0">
+                            <span className="text-gray-400 font-mono text-[11px] sm:text-[11px] shrink-0">
                               ({realNormalWordsCount} kelime)
                             </span>
                           </div>
@@ -865,7 +873,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                                     </span>
                                     <span className="truncate">{art.title}</span>
                                   </div>
-                                  <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 shrink-0 ml-2">
+                                  <span className="text-[11px] sm:text-[11px] font-mono text-gray-400 shrink-0 ml-2">
                                     {artWordCount} kelime
                                   </span>
                                 </div>
@@ -934,7 +942,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                       <h3 className="font-display text-xs sm:text-sm font-semibold text-gray-900">
                         Aşama 1: Normal Metin Okuma
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-gray-500">
+                      <p className="text-[11px] sm:text-xs text-gray-500">
                         Metni doğal okuma hızınızla okuyun ve bitirdiğinizde butona tıklayın.
                       </p>
                     </div>
@@ -945,7 +953,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     <span className="font-mono text-xs sm:text-sm font-semibold">
                       {(normalElapsedMs / 1000).toFixed(1)} sn
                     </span>
-                    <span className="text-[10px] text-gray-500 font-mono">
+                    <span className="text-[11px] text-gray-500 font-mono">
                       ({realNormalWordsCount} kelime)
                     </span>
                   </div>
@@ -976,7 +984,8 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-neutral-900 hover:bg-black text-white px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold shadow-lg transition-all active:scale-95"
                   >
                     <Square className="size-3.5 sm:size-4 fill-current" />
-                    <span>Süreyi Durdur (Bitirdim) →</span>
+                    <span>Süreyi Durdur (Bitirdim)</span>
+                    <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -994,7 +1003,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                       <h3 className="font-display text-xs sm:text-sm font-semibold text-gray-900">
                         Aşama 2: Biyonik Okuma Hazırlığı
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-gray-500">
+                      <p className="text-[11px] sm:text-xs text-gray-500">
                         1. Aşama tamamlandı. Hazır olduğunuzda 2. aşamayı başlatın.
                       </p>
                     </div>
@@ -1060,7 +1069,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                       <h3 className="font-display text-xs sm:text-sm font-semibold text-gray-900">
                         Aşama 2: Biyonik Formatlı Metin Okuma
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-gray-500">
+                      <p className="text-[11px] sm:text-xs text-gray-500">
                         Normal okuma süreniz:{" "}
                         <strong>{(normalElapsedMs / 1000).toFixed(1)} sn</strong>. Biyonik formatta
                         okumayı bitirdiğinizde butona tıklayın.
@@ -1073,7 +1082,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     <span className="font-mono text-xs sm:text-sm font-semibold">
                       {(bionicElapsedMs / 1000).toFixed(1)} sn
                     </span>
-                    <span className="text-[10px] text-gray-500 font-mono">
+                    <span className="text-[11px] text-gray-500 font-mono">
                       ({realBionicWordsCount} kelime)
                     </span>
                   </div>
@@ -1110,7 +1119,8 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-neutral-900 hover:bg-black text-white px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold shadow-lg transition-all active:scale-95"
                   >
                     <CheckCheck className="size-4" />
-                    <span>Süreyi Durdur ve Sonuçları Gör →</span>
+                    <span>Süreyi Durdur ve Sonuçları Gör</span>
+                    <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1121,7 +1131,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
               <div className="flex flex-col justify-between h-full min-h-[440px] sm:min-h-[480px] space-y-4 sm:space-y-5 animate-in zoom-in-98 duration-200 overflow-y-auto pr-1">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3 shrink-0">
                   <div>
-                    <span className="text-[10px] font-mono font-medium text-gray-400 uppercase tracking-widest">
+                    <span className="text-[11px] font-mono font-medium text-gray-400 uppercase tracking-widest">
                       Performans Raporu
                     </span>
                     <h3 className="font-display text-lg sm:text-2xl font-normal text-gray-900">
@@ -1149,7 +1159,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     <div className="text-2xl sm:text-3xl font-light text-gray-900 font-mono">
                       {normalWpm} <span className="text-xs font-normal text-gray-500">WPM</span>
                     </div>
-                    <div className="text-[10px] sm:text-[11px] text-gray-500 font-mono pt-1 border-t border-gray-200/60">
+                    <div className="text-[11px] sm:text-[11px] text-gray-500 font-mono pt-1 border-t border-gray-200/60">
                       Süre: {normalSeconds} sn
                     </div>
                   </div>
@@ -1162,7 +1172,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     <div className="text-2xl sm:text-3xl font-normal text-gray-900 font-mono">
                       {bionicWpm} <span className="text-xs font-normal text-gray-500">WPM</span>
                     </div>
-                    <div className="text-[10px] sm:text-[11px] text-gray-700 font-mono pt-1 border-t border-gray-100">
+                    <div className="text-[11px] sm:text-[11px] text-gray-700 font-mono pt-1 border-t border-gray-100">
                       Süre: {bionicSeconds} sn
                     </div>
                   </div>
@@ -1175,7 +1185,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
                     <div className="text-2xl sm:text-3xl font-medium text-white font-mono">
                       +{speedIncreasePercent}%
                     </div>
-                    <div className="text-[10px] sm:text-[11px] text-gray-300 font-mono pt-1 border-t border-neutral-800">
+                    <div className="text-[11px] sm:text-[11px] text-gray-300 font-mono pt-1 border-t border-neutral-800">
                       {savedSeconds > 0 ? `${savedSeconds} sn tasarruf` : "Bilişsel akış artışı"}
                     </div>
                   </div>

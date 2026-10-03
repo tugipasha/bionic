@@ -87,7 +87,7 @@ export function SettingsPage() {
             <Eye className="size-4 text-gray-500" />
             <span>Canlı Okuma Önizlemesi</span>
           </div>
-          <span className="text-[10px] sm:text-[11px] font-mono text-gray-400">
+          <span className="text-[11px] sm:text-[11px] font-mono text-gray-400">
             Font: {settings.fontFamily} • Boyut: {settings.fontSize} • Vurgu: %
             {settings.bionicFixation * 20} • Kalınlık: {settings.bionicWeight}
           </span>
@@ -155,7 +155,7 @@ export function SettingsPage() {
               >
                 <div>
                   <div className="font-semibold text-gray-900">{f.name}</div>
-                  <div className="text-[10px] text-gray-400 mt-0.5">{f.desc}</div>
+                  <div className="text-[11px] text-gray-400 mt-0.5">{f.desc}</div>
                 </div>
                 {settings.fontFamily === f.id && (
                   <Check className="size-3.5 text-black shrink-0 ml-2" />

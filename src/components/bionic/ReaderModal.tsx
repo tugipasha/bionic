@@ -125,7 +125,7 @@ export function ReaderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-md transition-all animate-in fade-in duration-200">
-      <div className="relative flex h-full max-h-[96vh] sm:max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border border-gray-200/80 bg-white/95 p-4 sm:p-8 shadow-2xl backdrop-blur-xl text-gray-900 overflow-hidden">
+      <div className="relative flex h-full max-h-[96dvh] sm:max-h-[90dvh] w-full max-w-4xl flex-col rounded-3xl border border-gray-200/80 bg-white/95 p-4 sm:p-8 shadow-2xl backdrop-blur-xl text-gray-900 overflow-hidden">
         {/* MODAL HEADER */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3 sm:pb-4 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -136,7 +136,7 @@ export function ReaderModal({
               <h2 className="font-display text-sm sm:text-base font-semibold text-gray-900">
                 {t("reader.title")}
               </h2>
-              <p className="text-[10px] sm:text-xs text-gray-400">
+              <p className="text-[11px] sm:text-xs text-gray-400">
                 {t("reader.stats", { words: stats.words, min: stats.readingTimeBionicMin })}
               </p>
             </div>

@@ -50,7 +50,10 @@ export function BionicDashboard({
     <div className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-background text-foreground font-sans">
       {/* Background Image - Exactly identical to the home page */}
       <img
-        src="/bionic-mountain-background.png"
+        src="/bionic-mountain-background.webp"
+        srcSet="/bionic-mountain-background-sm.webp 800w, /bionic-mountain-background.webp 1448w"
+        sizes="100vw"
+        decoding="async"
         alt="Sisli dağların üzerinde yükselen küre"
         className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
       />
@@ -74,7 +77,7 @@ export function BionicDashboard({
             <h1 className="font-display text-xl sm:text-2xl font-light tracking-wide text-foreground">
               BionicText
             </h1>
-            <span className="hidden sm:inline-flex rounded-full border border-foreground/20 bg-foreground/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-foreground/70">
+            <span className="hidden sm:inline-flex rounded-full border border-foreground/20 bg-foreground/10 px-2 py-0.5 text-[11px] uppercase tracking-wider text-foreground/70">
               Çevirici
             </span>
           </div>
@@ -134,7 +137,7 @@ export function BionicDashboard({
         {/* Right: User profile & Logout */}
         <div className="flex items-center gap-2.5">
           <div className="hidden lg:flex items-center gap-2 rounded-full border border-foreground/15 bg-foreground/10 px-3 py-1 text-xs text-foreground/90 backdrop-blur-sm">
-            <span className="flex size-5 items-center justify-center rounded-full bg-foreground/20 text-[10px]">
+            <span className="flex size-5 items-center justify-center rounded-full bg-foreground/20 text-[11px]">
               <User className="size-3" />
             </span>
             <span className="max-w-[140px] truncate">{userEmail}</span>

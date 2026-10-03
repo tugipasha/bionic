@@ -176,3 +176,100 @@
     font-size: 14vw;
   }
 }
+
+/*
+ * Mobil deneyim katmanı
+ * - base katmanında tutulur: Tailwind yardımcı sınıfları her zaman üstün gelir.
+ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 4rem);
+  }
+
+  body {
+    min-height: 100dvh;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overflow-wrap: break-word;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 300 ms dokunma gecikmesi ve çift dokunma yakınlaştırmasını kaldırır */
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="option"],
+  input,
+  select,
+  textarea,
+  label,
+  summary {
+    touch-action: manipulation;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Modal / çekmece içinde kaydırma sonunda sayfanın kaymasını engeller */
+  [role="dialog"],
+  [role="listbox"],
+  .overscroll-contain {
+    overscroll-behavior: contain;
+  }
+
+  /* iOS Safari: 16px altı alanlara odaklanınca sayfa yakınlaşır; telefonlarda engelle */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    textarea,
+    select {
+      font-size: max(16px, 1em);
+    }
+  }
+
+  /* Dokunmatik cihazlarda hover tuzaklarını önle ve dokunma hedeflerini büyüt */
+  @media (pointer: coarse) {
+    button:not([data-compact]),
+    [role="tab"],
+    [role="option"],
+    select {
+      min-height: 2.5rem;
+    }
+    input[type="range"] {
+      min-height: 2rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Çentik / ana ekran çubuğu güvenli alanları (viewport-fit=cover ile birlikte) */
+@utility safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+@utility safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pb-safe-nav {
+  /* alt gezinme çubuğu + güvenli alan kadar boşluk */
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+@utility scroll-smooth-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
