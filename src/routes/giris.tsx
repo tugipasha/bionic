@@ -2,10 +2,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { googleSignIn } from "@/lib/google-sheets-db";
+import { isSupabaseConfigured } from "@/lib/supabase-config";
+import { useSiteLanguage } from "@/lib/i18n";
+import { SiteLanguageSwitcher } from "@/components/bionic/SiteLanguageSwitcher";
 
 export const Route = createFileRoute("/giris")({
-  head: () => ({ meta: [{ title: "Giriş Yap — BionicText" }] }),
+  head: () => ({ meta: [{ title: "BionicText — Giriş / Sign in" }] }),
   component: Auth,
 });
 
@@ -14,6 +16,7 @@ const field =
 
 function Auth() {
   const navigate = useNavigate();
+  const { siteLang, setSiteLang, t } = useSiteLanguage();
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
@@ -24,35 +27,48 @@ function Auth() {
     const email = String(f.get("email"));
     const password = String(f.get("password"));
     const full_name = String(f.get("name") ?? "");
+    if (!isSupabaseConfigured()) {
+      return setMsg({ text: t("auth.notConfigured"), error: true });
+    }
     setBusy(true);
     setMsg(null);
 
-    const { data, error } = signup
-      ? await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin, data: { full_name } },
-        })
-      : await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = signup
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin, data: { full_name } },
+          })
+        : await supabase.auth.signInWithPassword({ email, password });
 
-    setBusy(false);
-    if (error) return setMsg({ text: error.message, error: true });
-    if (data.session) return navigate({ to: "/" });
-    setMsg({ text: "Doğrulama bağlantısı e-posta adresine gönderildi." });
+      if (error) return setMsg({ text: error.message, error: true });
+      if (data.session) return navigate({ to: "/" });
+      setMsg({ text: t("auth.verifySent") });
+    } catch (err: unknown) {
+      setMsg({ text: err instanceof Error ? err.message : t("auth.googleFail"), error: true });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function google() {
+    if (!isSupabaseConfigured()) {
+      return setMsg({ text: t("auth.notConfigured"), error: true });
+    }
     setBusy(true);
     setMsg(null);
     try {
-      const res = await googleSignIn();
-      if (res?.user) {
-        navigate({ to: "/" });
-      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Google ile giriş yapılamadı.";
+      const message = err instanceof Error ? err.message : t("auth.googleFail");
       setMsg({ text: message, error: true });
-    } finally {
       setBusy(false);
     }
   }
@@ -66,21 +82,26 @@ function Auth() {
       />
       <div className="absolute inset-0 -z-10 bg-black/30" />
 
-      <Link to="/" className="absolute left-[2.73vw] top-[3.25vh] font-display text-xl font-light">
+      <Link to="/" className="absolute start-[2.73vw] top-[3.25vh] font-display text-xl font-light">
         BionicText
       </Link>
+      <div className="absolute end-[2.73vw] top-[2.5vh]">
+        <SiteLanguageSwitcher siteLang={siteLang} onSelect={setSiteLang} variant="dark" />
+      </div>
 
       <form
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-3xl border border-foreground/25 bg-foreground/10 p-8 backdrop-blur-md"
       >
-        <h1 className="font-display text-3xl font-light">{signup ? "Kayıt Ol" : "Giriş Yap"}</h1>
+        <h1 className="font-display text-3xl font-light">
+          {signup ? t("auth.signup") : t("btn.login")}
+        </h1>
 
         {signup && (
           <input
             className={field}
             name="name"
-            placeholder="Ad Soyad"
+            placeholder={t("auth.name")}
             autoComplete="name"
             required
           />
@@ -89,7 +110,7 @@ function Auth() {
           className={field}
           name="email"
           type="email"
-          placeholder="E-posta"
+          placeholder={t("auth.email")}
           autoComplete="email"
           required
         />
@@ -97,7 +118,7 @@ function Auth() {
           className={field}
           name="password"
           type="password"
-          placeholder="Şifre"
+          placeholder={t("auth.password")}
           autoComplete={signup ? "new-password" : "current-password"}
           minLength={6}
           required
@@ -113,9 +134,9 @@ function Auth() {
           disabled={busy}
           className="group flex h-12 w-full items-center justify-between rounded-full border border-foreground/25 py-1 pl-6 pr-1 text-sm font-medium transition-colors hover:bg-foreground/10 disabled:opacity-60"
         >
-          {signup ? "Hesap Oluştur" : "Giriş Yap"}
+          {signup ? t("auth.createAccount") : t("btn.login")}
           <span className="flex size-10 items-center justify-center rounded-full bg-foreground text-background">
-            <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.8} />
+            <ArrowRight aria-hidden="true" className="size-4 rtl:rotate-180" strokeWidth={1.8} />
           </span>
         </button>
 
@@ -143,7 +164,7 @@ function Auth() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>Google ile Giriş Yap</span>
+          <span>{t("auth.google")}</span>
         </button>
 
         <button
@@ -154,8 +175,15 @@ function Auth() {
           }}
           className="w-full text-center text-sm font-light text-foreground/70 hover:text-foreground"
         >
-          {signup ? "Zaten hesabın var mı? Giriş yap" : "Hesabın yok mu? Kayıt ol"}
+          {signup ? t("auth.haveAccount") : t("auth.noAccount")}
         </button>
+
+        <Link
+          to="/"
+          className="block w-full text-center text-sm font-light text-foreground/70 hover:text-foreground"
+        >
+          {t("auth.guest")}
+        </Link>
       </form>
     </main>
   );

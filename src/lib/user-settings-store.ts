@@ -1,28 +1,13 @@
-export interface UserSettings {
-  fontFamily: "sans" | "outfit" | "lexend" | "serif" | "mono";
-  fontSize: "sm" | "base" | "lg" | "xl";
-  bionicFixation: number; // 1 to 5 (fixation intensity)
-  bionicWeight: "semibold" | "bold" | "extrabold" | "black";
-  bionicColor: "black" | "indigo" | "emerald" | "charcoal";
-  lineHeight: "normal" | "relaxed" | "loose";
-  defaultWpm: number; // 200 to 800
-  ttsSpeed: number; // 0.8, 1.0, 1.25, 1.5
-  saccadeStep: number; // 1 (every word), 2 (every 2nd word), 3 (every 3rd word)
-}
+import {
+  fetchDbUserSettings,
+  saveDbUserSettings,
+  type UserSettingsData as UserSettings,
+  DEFAULT_USER_SETTINGS as DEFAULT_SETTINGS,
+} from "./supabase-db";
+
+export { type UserSettings, DEFAULT_SETTINGS };
 
 const SETTINGS_STORAGE_KEY = "bionictext_user_settings_v3";
-
-export const DEFAULT_SETTINGS: UserSettings = {
-  fontFamily: "sans",
-  fontSize: "base",
-  bionicFixation: 3,
-  bionicWeight: "bold",
-  bionicColor: "black",
-  lineHeight: "relaxed",
-  defaultWpm: 350,
-  ttsSpeed: 1.0,
-  saccadeStep: 1,
-};
 
 export function getUserSettings(): UserSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
@@ -42,7 +27,15 @@ export function saveUserSettings(settings: Partial<UserSettings>): UserSettings 
     applySettingsToDOM(updated);
     window.dispatchEvent(new CustomEvent("bionictext_settings_changed", { detail: updated }));
   }
+  // Sync to Supabase in background
+  saveDbUserSettings(settings).catch(() => {});
   return updated;
+}
+
+export async function syncUserSettingsWithSupabase(): Promise<UserSettings> {
+  const settings = await fetchDbUserSettings();
+  applySettingsToDOM(settings);
+  return settings;
 }
 
 export function applySettingsToDOM(settings: UserSettings) {

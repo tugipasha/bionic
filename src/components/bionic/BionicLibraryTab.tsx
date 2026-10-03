@@ -1,57 +1,54 @@
-import React, { useState, useEffect } from "react";
-import { BookOpen, Trash2, ExternalLink, Plus, Clock, FileText, Copy, Check } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { BookOpen, Trash2, ExternalLink, FileText, Copy, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { convertToBionicHtml, calculateTextStats } from "./bionic-transformer";
-
-export interface SavedDocument {
-  id: string;
-  title: string;
-  text: string;
-  createdAt: string;
-  words: number;
-}
+import { fetchLibraryDocs, deleteLibraryDoc, type LibraryDocument } from "@/lib/supabase-db";
 
 interface BionicLibraryTabProps {
   onSelectDocument: (text: string) => void;
 }
 
 export function BionicLibraryTab({ onSelectDocument }: BionicLibraryTabProps) {
-  const [docs, setDocs] = useState<SavedDocument[]>([]);
-  const [selectedDoc, setSelectedDoc] = useState<SavedDocument | null>(null);
+  const [docs, setDocs] = useState<LibraryDocument[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<LibraryDocument | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    loadLibrary();
-  }, []);
-
-  const loadLibrary = () => {
+  const loadLibrary = useCallback(async () => {
+    setLoading(true);
     try {
-      const saved = JSON.parse(localStorage.getItem("bionic_library") || "[]");
+      const saved = await fetchLibraryDocs();
       setDocs(saved);
       if (saved.length > 0 && !selectedDoc) {
-        setSelectedDoc(saved[0]);
+        setSelectedDoc(saved[0] ?? null);
       }
     } catch {
       setDocs([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [selectedDoc]);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  useEffect(() => {
+    loadLibrary();
+  }, [loadLibrary]);
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
+      await deleteLibraryDoc(id);
       const updated = docs.filter((d) => d.id !== id);
-      localStorage.setItem("bionic_library", JSON.stringify(updated));
       setDocs(updated);
       if (selectedDoc?.id === id) {
         setSelectedDoc(updated[0] || null);
       }
-      toast.success("Belge silindi.");
+      toast.success("Belge kütüphaneden silindi.");
     } catch {
       toast.error("Silinemedi.");
     }
   };
 
-  const handleCopy = async (doc: SavedDocument, e: React.MouseEvent) => {
+  const handleCopy = async (doc: LibraryDocument, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const bionicHtml = convertToBionicHtml(doc.text);
@@ -79,9 +76,20 @@ export function BionicLibraryTab({ onSelectDocument }: BionicLibraryTabProps) {
             Biyonik Metin Kütüphanem ({docs.length})
           </h2>
         </div>
-        <span className="text-xs text-foreground/70">
-          Kaydettiğiniz tüm metinler cihazınızda güvenle saklanır.
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadLibrary}
+            className="flex items-center gap-1 rounded-lg p-1.5 text-xs text-foreground/70 hover:bg-foreground/10 hover:text-foreground transition-colors"
+            title="Yenile"
+          >
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Yenile</span>
+          </button>
+          <span className="text-xs text-foreground/70 hidden sm:inline">
+            Supabase Veritabanı ile senkronize
+          </span>
+        </div>
       </div>
 
       <div className="grid flex-1 grid-cols-1 md:grid-cols-3 gap-4 min-h-[440px]">
@@ -92,7 +100,8 @@ export function BionicLibraryTab({ onSelectDocument }: BionicLibraryTabProps) {
               <FileText className="mb-3 size-10 opacity-40" />
               <p className="text-sm font-medium">Henüz kayıtlı belgeniz yok.</p>
               <p className="mt-1 text-xs text-foreground/40">
-                Çeviri sekmesinden metinlerinizi "Kaydet" butonu ile buraya ekleyebilirsiniz.
+                Çeviri veya okuyucu sekmesinden metinlerinizi "Kaydet" butonu ile buraya
+                ekleyebilirsiniz.
               </p>
             </div>
           ) : (
@@ -140,9 +149,10 @@ export function BionicLibraryTab({ onSelectDocument }: BionicLibraryTabProps) {
                     <p className="mt-1 line-clamp-2 text-xs text-foreground/60">{doc.text}</p>
 
                     <div className="mt-2.5 flex items-center justify-between text-[11px] text-foreground/50">
-                      <span className="flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {new Date(doc.createdAt).toLocaleDateString("tr-TR")}
+                      <span>
+                        {doc.createdAt
+                          ? new Date(doc.createdAt).toLocaleDateString("tr-TR")
+                          : "Bugün"}
                       </span>
                       <span>{doc.words || calculateTextStats(doc.text).words} kelime</span>
                     </div>
@@ -164,7 +174,9 @@ export function BionicLibraryTab({ onSelectDocument }: BionicLibraryTabProps) {
                   </h3>
                   <p className="text-xs text-foreground/60">
                     {calculateTextStats(selectedDoc.text).words} kelime ·{" "}
-                    {new Date(selectedDoc.createdAt).toLocaleString("tr-TR")}
+                    {selectedDoc.createdAt
+                      ? new Date(selectedDoc.createdAt).toLocaleString("tr-TR")
+                      : "Kayıtlı Belge"}
                   </p>
                 </div>
 

@@ -44,22 +44,19 @@ export function transformWord(
   word: string,
   fixationLevel: number = 3,
 ): { bold: string; rest: string } {
-  // Extract leading/trailing punctuation
-  const match = word.match(
-    /^([^\p{L}\p{N}]*)([\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*)([^\p{L}\p{N}]*)$/u,
-  );
+  // Baştaki noktalama + çekirdek kelime + sondaki noktalama (kelime içi noktalama serbest)
+  const leading = word.match(/^[^\p{L}\p{N}]*/u)?.[0] ?? "";
+  const afterLeading = word.slice(leading.length);
+  const trailing = afterLeading.match(/[^\p{L}\p{N}]*$/u)?.[0] ?? "";
+  const coreWord = afterLeading.slice(0, afterLeading.length - trailing.length);
 
-  if (!match) {
-    // If it's pure punctuation or symbols
-    return { bold: "", rest: word };
-  }
-
-  const [, leading = "", coreWord = "", trailing = ""] = match;
+  // Saf noktalama/sembol
   if (!coreWord) return { bold: "", rest: word };
 
-  const fixLen = calculateFixationLength(coreWord.length, fixationLevel);
-  const boldPart = leading + coreWord.slice(0, fixLen);
-  const restPart = coreWord.slice(fixLen) + trailing;
+  const chars = Array.from(coreWord); // vurgu Unicode karakter (emoji/CJK) sınırında kalsın
+  const fixLen = calculateFixationLength(chars.length, fixationLevel);
+  const boldPart = leading + chars.slice(0, fixLen).join("");
+  const restPart = chars.slice(fixLen).join("") + trailing;
 
   return { bold: boldPart, rest: restPart };
 }
@@ -87,11 +84,11 @@ export function convertToBionicHtml(text: string, options: Partial<BionicOptions
         wordCount++;
         // Check saccade
         if (opts.saccade > 1 && wordCount % opts.saccade !== 1) {
-          return token;
+          return escapeHtml(token);
         }
 
         const { bold, rest } = transformWord(token, opts.fixation);
-        if (!bold) return rest;
+        if (!bold) return escapeHtml(rest);
         return `<b>${escapeHtml(bold)}</b>${escapeHtml(rest)}`;
       });
 
@@ -100,7 +97,7 @@ export function convertToBionicHtml(text: string, options: Partial<BionicOptions
     .join("");
 }
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { initAuth, logoutGoogle } from "@/lib/google-sheets-db";
 import { ExactBionicApp } from "@/components/bionic/ExactBionicApp";
 import { LandingPage } from "@/components/bionic/LandingPage";
+import { syncUserSettingsWithSupabase } from "@/lib/user-settings-store";
+import { syncTestHistoryWithSupabase } from "@/lib/reading-stats-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,65 +31,84 @@ export const Route = createFileRoute("/")({
 function Index() {
   const navigate = useNavigate();
   const [loggedIn, setLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState<string>("ardumindproje@gmail.com");
+  const [guest, setGuest] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
 
   useEffect(() => {
-    // 1. Google Workspace Firebase Auth Listener
-    const unsubscribeGoogle = initAuth(
-      (user) => {
-        setLoggedIn(true);
-        if (user.email) setUserEmail(user.email);
-      },
-      () => {
-        // Fallback to Supabase check
-        supabase.auth.getSession().then(({ data }) => {
-          if (data.session) {
-            setLoggedIn(true);
-            if (data.session.user?.email) {
-              setUserEmail(data.session.user.email);
-            }
+    try {
+      if (sessionStorage.getItem("bionictext_guest") === "1") setGuest(true);
+    } catch {
+      /* yoksay */
+    }
+    // Check initial Supabase session
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session) {
+          setLoggedIn(true);
+          if (data.session.user?.email) {
+            setUserEmail(data.session.user.email);
           }
-        });
-      },
-    );
-
-    // 2. Supabase Auth Listener
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setLoggedIn(true);
-        if (data.session.user?.email) {
-          setUserEmail(data.session.user.email);
+          syncUserSettingsWithSupabase().catch(() => {});
+          syncTestHistoryWithSupabase().catch(() => {});
         }
-      }
-    });
+      })
+      .catch(() => {
+        /* Supabase yapılandırılmamış / ağ yok: misafir olarak devam */
+      });
 
+    // Listen to real-time auth changes
     const { data: supaSub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) {
         setLoggedIn(true);
         if (session.user?.email) {
           setUserEmail(session.user.email);
         }
+        syncUserSettingsWithSupabase().catch(() => {});
+        syncTestHistoryWithSupabase().catch(() => {});
+      } else {
+        setLoggedIn(false);
       }
     });
 
     return () => {
-      unsubscribeGoogle();
       supaSub.subscription.unsubscribe();
     };
   }, []);
 
   const handleSignOut = async () => {
-    await logoutGoogle();
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* yoksay */
+    }
     setLoggedIn(false);
+    setGuest(false);
+    try {
+      sessionStorage.removeItem("bionictext_guest");
+    } catch {
+      /* yoksay */
+    }
   };
 
   const handleGoToLogin = () => {
     navigate({ to: "/giris" });
   };
 
-  if (!loggedIn) {
-    return <LandingPage onGoToLogin={handleGoToLogin} />;
+  if (!loggedIn && !guest) {
+    return (
+      <LandingPage
+        onGoToLogin={handleGoToLogin}
+        onTryNow={() => {
+          try {
+            sessionStorage.setItem("bionictext_guest", "1");
+          } catch {
+            /* yoksay */
+          }
+          setGuest(true);
+        }}
+      />
+    );
   }
 
   return (

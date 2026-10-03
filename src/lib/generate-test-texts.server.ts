@@ -1,7 +1,10 @@
+import { ENGLISH_NAMES, resolveLanguage } from "./translate-core";
+
 export interface GenerateTestRequest {
   prompt: string;
   targetWords?: number;
   length?: "Kısa" | "Orta" | "Uzun";
+  lang?: string;
 }
 
 export interface GeneratedTestResponse {
@@ -15,7 +18,17 @@ export interface GeneratedTestResponse {
   error?: string;
 }
 
-// Fetch active models from Groq API
+const DEFAULT_MODELS = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "llama3-70b-8192",
+  "llama3-8b-8192",
+  "deepseek-r1-distill-llama-70b",
+  "qwen-2.5-32b",
+  "llama-3.2-11b-vision-preview",
+  "openai/gpt-oss-120b",
+];
+
 async function getAvailableGroqModels(apiKey: string): Promise<string[]> {
   try {
     const res = await fetch("https://api.groq.com/openai/v1/models", {
@@ -24,23 +37,19 @@ async function getAvailableGroqModels(apiKey: string): Promise<string[]> {
     if (res.ok) {
       const data = await res.json();
       if (data?.data && Array.isArray(data.data)) {
-        return data.data.map((m: { id: string }) => m.id);
+        const ids = data.data
+          .map((m: { id: string }) => m.id)
+          .filter(
+            (id: string) =>
+              !id.includes("whisper") && !id.includes("embed") && !id.includes("guard"),
+          );
+        if (ids.length > 0) return ids;
       }
     }
   } catch (e) {
     console.warn("Failed to fetch Groq models list:", e);
   }
-  // Default fallback candidates known to be active on Groq
-  return [
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "llama-3.2-11b-vision-preview",
-    "llama-3.2-3b-preview",
-    "llama-3.2-1b-preview",
-    "qwen-2.5-32b",
-    "deepseek-r1-distill-llama-70b",
-    "openai/gpt-oss-120b",
-  ];
+  return DEFAULT_MODELS;
 }
 
 export async function generateReadingTestTexts(request: Request): Promise<Response> {
@@ -48,21 +57,22 @@ export async function generateReadingTestTexts(request: Request): Promise<Respon
     const body = (await request.json()) as GenerateTestRequest;
     const userPrompt = body.prompt?.trim() || "Bilişsel algı ve hızlı okuma teknikleri";
 
-    // Word target
     let targetWords = body.targetWords || 220;
     if (body.length === "Kısa") targetWords = 140;
     if (body.length === "Orta") targetWords = 220;
     if (body.length === "Uzun") targetWords = 340;
 
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = process.env["GROQ_API_KEY"];
+    const langMeta = resolveLanguage(body.lang) ?? resolveLanguage("tr");
+    const langName = langMeta ? (ENGLISH_NAMES[langMeta.code] ?? "Turkish") : "Turkish";
 
     const systemPrompt = `Sen BionicText platformu için 2 aşamalı bilimsel okuma testi hazırlayan profesyonel bir içerik yazarısın.
-Kullanıcının tarif ettiği konuyu ele alan, birbirinin kopyası OLMAYAN, fakat AYNI KONUYU ve TAM OLARAK ${targetWords} KELİME UZUNLUĞUNU (${targetWords} kelime) işleyen 2 farklı paralel Türkçe metin yazacaksın.
+Kullanıcının tarif ettiği konuyu ele alan, birbirinin kopyası OLMAYAN, fakat AYNI KONUYU ve TAM OLARAK ${targetWords} KELİME UZUNLUĞUNU (${targetWords} kelime) işleyen 2 farklı paralel metin yazacaksın (metinlerin dili: ${langName}).
 
 KESİN KURALLAR:
 1. "normalText" (1. Aşama Metni): Kullanıcının konusunu derinlemesine, akıcı ve doyurucu şekilde açıklayan TAM OLARAK ${targetWords} KELİMELİK zengin bir makale. Metni kısa kesme, hedef kelime sayısını tam olarak doldur.
 2. "bionicText" (2. Aşama Metni): Aynı konuyu farklı cümle yapıları, alternatif argümanlar ve taze örneklerle anlatan, yine TAM OLARAK ${targetWords} KELİMELİK paralel bir kardeş makale.
-3. Her iki metin de yüksek kaliteli, zengin sözcük dağarcığına sahip ve akıcı Türkçe olmalıdır.
+3. Her iki metin de yüksek kaliteli, zengin sözcük dağarcığına sahip ve akıcı ${langName} olmalıdır.
 4. "title" alanı konuyu yansıtan net bir başlık olmalıdır.
 
 YANITINI SADECE GEÇERLİ BİR JSON NESNESİ OLARAK DÖNDÜR:
@@ -73,14 +83,6 @@ YANITINI SADECE GEÇERLİ BİR JSON NESNESİ OLARAK DÖNDÜR:
   "bionicText": "Tam olarak ${targetWords} kelimelik 2. aşama kardeş metni..."
 }`;
 
-    const activeModels = apiKey ? await getAvailableGroqModels(apiKey) : [];
-    console.log("Available Groq models:", activeModels);
-
-    // Filter models suited for text generation (exclude whisper/audio)
-    const textModels = activeModels.filter(
-      (m) => !m.includes("whisper") && !m.includes("embed") && !m.includes("guard"),
-    );
-
     let generatedData: {
       title: string;
       category: string;
@@ -88,58 +90,57 @@ YANITINI SADECE GEÇERLİ BİR JSON NESNESİ OLARAK DÖNDÜR:
       bionicText: string;
     } | null = null;
 
-    for (const model of textModels) {
-      try {
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: `Konu ve Tarif: ${userPrompt}\nHedef Kelime Sayısı: Her bir metin için tam ${targetWords} kelime.`,
-              },
-            ],
-            temperature: 0.6,
-            max_tokens: 3000,
-            response_format: { type: "json_object" },
-          }),
-        });
+    if (apiKey) {
+      const activeModels = await getAvailableGroqModels(apiKey);
 
-        if (groqRes.ok) {
-          const resData = await groqRes.json();
-          const rawContent = resData.choices?.[0]?.message?.content;
-          if (rawContent) {
-            // Clean up possible markdown wrappers
-            const cleaned = rawContent
-              .replace(/^```json\s*/i, "")
-              .replace(/^```\s*/i, "")
-              .replace(/```\s*$/i, "")
-              .trim();
+      for (const model of activeModels) {
+        try {
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                {
+                  role: "user",
+                  content: `Konu ve Tarif: ${userPrompt}\nHedef Kelime Sayısı: Her bir metin için tam ${targetWords} kelime.`,
+                },
+              ],
+              temperature: 0.6,
+              max_tokens: 3000,
+              response_format: { type: "json_object" },
+            }),
+          });
 
-            const parsed = JSON.parse(cleaned);
-            if (parsed.normalText && parsed.bionicText) {
-              generatedData = parsed;
-              console.log(`Groq generation succeeded using model: ${model}`);
-              break;
+          if (groqRes.ok) {
+            const resData = await groqRes.json();
+            const rawContent = resData.choices?.[0]?.message?.content;
+            if (rawContent) {
+              const cleaned = rawContent
+                .replace(/^```json\s*/i, "")
+                .replace(/^```\s*/i, "")
+                .replace(/```\s*$/i, "")
+                .trim();
+
+              const parsed = JSON.parse(cleaned);
+              if (parsed.normalText && parsed.bionicText) {
+                generatedData = parsed;
+                break;
+              }
             }
           }
-        } else {
-          const errText = await groqRes.text();
-          console.warn(`Groq model ${model} failed (${groqRes.status}):`, errText);
+        } catch (err) {
+          console.warn(`Groq request with ${model} error:`, err);
         }
-      } catch (err) {
-        console.warn(`Groq request with ${model} error:`, err);
       }
     }
 
     if (!generatedData || !generatedData.normalText || !generatedData.bionicText) {
-      // Fallback robust generator if Groq is temporarily unavailable
+      // Fallback generator if Groq key is not yet provided
       const wordsArray = userPrompt.split(/\s+/);
       const mainSubject = wordsArray.slice(0, 4).join(" ");
       generatedData = {
@@ -172,7 +173,7 @@ YANITINI SADECE GEÇERLİ BİR JSON NESNESİ OLARAK DÖNDÜR:
     return new Response(
       JSON.stringify({
         success: false,
-        error: "Metin oluşturulurken beklenmeyen bir hata oluştu.",
+        error: "Metin oluşturulurken bir sorun oluştu.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );

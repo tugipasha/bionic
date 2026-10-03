@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSiteLanguage } from "@/lib/i18n";
 import {
   Zap,
   Clock,
@@ -236,6 +237,7 @@ interface ReadingTestPageProps {
 }
 
 export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTestPageProps) {
+  const { siteLang } = useSiteLanguage();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("tech");
   const [selectedArticleId, setSelectedArticleId] = useState<string>("tech-1");
   const [customArticle, setCustomArticle] = useState<TestArticle | null>(null);
@@ -318,6 +320,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           prompt: promptToSend,
+          lang: siteLang,
           targetWords: wordsToRequest,
         }),
       });
@@ -655,23 +658,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
           ========================================================================= */}
       {testState !== "ai_generating_screen" && testState !== "custom_generator_modal" && (
         <>
-          {/* 1. HERO TITLE */}
-          <div className="space-y-1 sm:space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-              <span>OKUMA HIZI TESTİ</span>
-              <span className="h-px w-6 bg-gray-400/60 inline-block" />
-            </div>
-            <h1 className="font-display text-2xl sm:text-4xl lg:text-5xl font-light tracking-tight text-gray-900 leading-tight">
-              Okuma hızını
-              <br />
-              keşfet.
-            </h1>
-            <p className="text-gray-600 text-xs sm:text-sm font-normal leading-relaxed max-w-lg">
-              Kısa metinlerle okuma hızını ölç, kendini geliştir ve ilerlemeni takip et.
-            </p>
-          </div>
-
-          {/* 2. MAIN WORKSPACE CARD */}
+          {/* MAIN WORKSPACE CARD */}
           <div className="relative rounded-3xl border border-gray-200/90 bg-white/95 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 backdrop-blur-md min-h-[500px] lg:min-h-[560px] flex flex-col justify-between overflow-hidden">
             {/* STATE 1: SELECTION */}
             {testState === "selection" && (

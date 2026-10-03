@@ -26,30 +26,33 @@ import {
   Trash2,
   Sliders,
   Activity,
+  Globe,
+  Search,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { convertToBionicHtml } from "./bionic-transformer";
 import { ReaderModal } from "./ReaderModal";
 import { ReadingTestPage } from "./ReadingTestPage";
 import { AIAssistantPage } from "./AIAssistantPage";
-import { EyeExerciseView, ReadingRaceView } from "./OtherTabsModals";
+import { ReadingRacePage } from "./ReadingRacePage";
 import { ProfilePage } from "./ProfilePage";
 import { SettingsPage } from "./SettingsPage";
-import { saveReadingToSheets } from "@/lib/google-sheets-db";
-import { getUserSettings, applySettingsToDOM } from "@/lib/user-settings-store";
+import { logReadingActivity } from "@/lib/supabase-db";
+import { getUserSettings, applySettingsToDOM, type UserSettings } from "@/lib/user-settings-store";
+import { SiteLanguageSwitcher } from "./SiteLanguageSwitcher";
+import { translateWithMyMemory, resolveLanguage } from "@/lib/translate-core";
+import {
+  SITE_LANGUAGES,
+  t,
+  getLanguageMeta,
+  useSiteLanguage,
+  type SupportedLanguage,
+} from "@/lib/i18n";
 
-type ActiveTab = "translate" | "test" | "exercises" | "race" | "assistant" | "profile" | "settings";
+type ActiveTab = "translate" | "test" | "race" | "assistant" | "profile" | "settings";
 
-export const LANGUAGES = [
-  { code: "en", name: "İngilizce", flag: "🇬🇧" },
-  { code: "tr", name: "Türkçe", flag: "🇹🇷" },
-  { code: "de", name: "Almanca", flag: "🇩🇪" },
-  { code: "fr", name: "Fransızca", flag: "🇫🇷" },
-  { code: "es", name: "İspanyolca", flag: "🇪🇸" },
-  { code: "it", name: "İtalyanca", flag: "🇮🇹" },
-  { code: "ru", name: "Rusça", flag: "🇷🇺" },
-  { code: "ar", name: "Arapça", flag: "🇸🇦" },
-];
+export const LANGUAGES = SITE_LANGUAGES;
 
 const DEFAULT_SOURCE_TEXT =
   "Technology has fundamentally changed how people access information. We now learn faster, understand better, and prepare stronger for the future.";
@@ -82,7 +85,7 @@ interface ExactBionicAppProps {
 }
 
 export function ExactBionicApp({
-  userEmail = "ardumindproje@gmail.com",
+  userEmail = "",
   isLoggedIn,
   onSignOut,
   onGoToLogin,
@@ -105,14 +108,33 @@ export function ExactBionicApp({
   const [sourceDropdownOpen, setSourceDropdownOpen] = useState<boolean>(false);
   const [targetDropdownOpen, setTargetDropdownOpen] = useState<boolean>(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState<boolean>(false);
+  const [sourceSearch, setSourceSearch] = useState<string>("");
+  const [targetSearch, setTargetSearch] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const sourceDropdownRef = useRef<HTMLDivElement>(null);
   const targetDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const translateRequestId = useRef(0);
+  const { siteLang, setSiteLang: changeSiteLang } = useSiteLanguage();
 
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+
+  // Site dili ilk yüklemede (kayıtlı/tarayıcı dili) belirlendiğinde çeviri hedefini ona getir
+  const langInitialised = useRef(false);
+  useEffect(() => {
+    if (langInitialised.current) return;
+    langInitialised.current = true;
+    if (siteLang !== "tr" && siteLang !== targetLang) {
+      const newSource = siteLang === "en" ? "tr" : "en";
+      setTargetLang(siteLang);
+      setSourceLang(newSource);
+      setSourceText("");
+      setTranslatedText("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteLang]);
 
   // Apply User settings on load & listen to real-time changes
   useEffect(() => {
@@ -155,6 +177,7 @@ export function ExactBionicApp({
   }, []);
 
   // Translation Function
+  const MAX_SOURCE_CHARS = 5000;
   const handleTranslate = async (
     textToTranslate?: string,
     overrideSource?: string,
@@ -169,6 +192,11 @@ export function ExactBionicApp({
       return;
     }
 
+    if (fromLang === toLang) {
+      setTranslatedText(text);
+      return;
+    }
+
     if (
       text.trim().toLowerCase() === DEFAULT_SOURCE_TEXT.toLowerCase() &&
       fromLang === "en" &&
@@ -178,29 +206,62 @@ export function ExactBionicApp({
       return;
     }
 
+    const requestId = ++translateRequestId.current;
     setIsTranslating(true);
+    let result: string | null = null;
     try {
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`,
-      );
-      const data = await res.json();
-      if (data && data.responseData && data.responseData.translatedText) {
-        setTranslatedText(data.responseData.translatedText);
-        saveReadingToSheets({
-          sourceLang: fromLang,
-          targetLang: toLang,
-          wordCount: text.split(/\s+/).filter(Boolean).length,
-          isBionic,
-          textSnippet: data.responseData.translatedText,
-        }).catch(() => {});
-      } else {
-        setTranslatedText(text);
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, source_lang: fromLang, target_lang: toLang }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { translation?: string };
+        if (data.translation) result = data.translation;
       }
     } catch {
-      setTranslatedText(text);
-    } finally {
-      setIsTranslating(false);
+      /* sunucu rotası yoksa istemci yedeğine geç */
     }
+
+    if (result === null) {
+      try {
+        const src = resolveLanguage(fromLang);
+        const tgt = resolveLanguage(toLang);
+        if (src && tgt) result = await translateWithMyMemory(text, src.iso, tgt.iso);
+      } catch {
+        result = null;
+      }
+    }
+
+    // Daha yeni bir çeviri isteği başladıysa bu sonucu yoksay
+    if (requestId !== translateRequestId.current) return;
+    setIsTranslating(false);
+
+    if (result === null) {
+      toast.error(t("toast.translateFailed", siteLang));
+      return;
+    }
+
+    setTranslatedText(result);
+    logReadingActivity({
+      sourceLang: fromLang,
+      targetLang: toLang,
+      wordCount: text.split(/\s+/).filter(Boolean).length,
+      isBionic,
+      textSnippet: result,
+    }).catch(() => {});
+  };
+
+  // Site dili değişince çeviri hedef dilini de ona getir
+  const handleSiteLanguageSelect = (code: string) => {
+    changeSiteLang(code);
+    const meta = getLanguageMeta(code);
+    let newSource = sourceLang;
+    if (newSource === code) newSource = code === "en" ? "tr" : "en";
+    setSourceLang(newSource);
+    setTargetLang(code);
+    if (sourceText.trim()) handleTranslate(sourceText, newSource, code);
+    toast.success(t("toast.langChanged", code, { lang: `${meta.flag} ${meta.nativeName}` }));
   };
 
   // Language Swap
@@ -226,7 +287,7 @@ export function ExactBionicApp({
     const SpeechRecognition = win?.SpeechRecognition || win?.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.error("Tarayıcınız sesle yazmayı desteklemiyor.");
+      toast.error(t("toast.micUnsupported", siteLang));
       return;
     }
 
@@ -238,13 +299,13 @@ export function ExactBionicApp({
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = sourceLang === "tr" ? "tr-TR" : "en-US";
+      recognition.lang = getLanguageMeta(sourceLang).locale;
       recognition.continuous = false;
       recognition.interimResults = false;
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.info("Dinleniyor... Konuşun.");
+        toast.info(t("toast.listening", siteLang));
       };
 
       recognition.onresult = (event) => {
@@ -266,7 +327,7 @@ export function ExactBionicApp({
       recognition.start();
     } catch {
       setIsListening(false);
-      toast.error("Mikrofon başlatılamadı.");
+      toast.error(t("toast.micFailed", siteLang));
     }
   };
 
@@ -279,9 +340,13 @@ export function ExactBionicApp({
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        setSourceText(content.slice(0, 5000));
-        handleTranslate(content.slice(0, 5000));
-        toast.success(`"${file.name}" yüklendi.`);
+        const clipped = content.slice(0, MAX_SOURCE_CHARS);
+        setSourceText(clipped);
+        handleTranslate(clipped);
+        toast.success(t("toast.fileLoaded", siteLang, { name: file.name }));
+        if (content.length > MAX_SOURCE_CHARS) {
+          toast.info(t("toast.tooLong", siteLang, { n: MAX_SOURCE_CHARS }));
+        }
       }
     };
     reader.readAsText(file);
@@ -291,9 +356,9 @@ export function ExactBionicApp({
   // Copy
   const handleCopy = () => {
     if (!translatedText) return;
-    navigator.clipboard.writeText(translatedText);
+    navigator.clipboard?.writeText(translatedText).catch(() => {});
     setCopied(true);
-    toast.success("Çeviri kopyalandı.");
+    toast.success(t("btn.copied", siteLang));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -306,6 +371,10 @@ export function ExactBionicApp({
   // Text to Speech
   const handleSpeak = () => {
     if (!translatedText) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast.error(t("toast.ttsUnsupported", siteLang));
+      return;
+    }
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -313,7 +382,7 @@ export function ExactBionicApp({
     }
 
     const utterance = new SpeechSynthesisUtterance(translatedText);
-    utterance.lang = targetLang === "tr" ? "tr-TR" : "en-US";
+    utterance.lang = getLanguageMeta(targetLang).locale;
     utterance.rate = userSettings.ttsSpeed || 1.0;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -322,10 +391,10 @@ export function ExactBionicApp({
     window.speechSynthesis.speak(utterance);
   };
 
-  const currentSource = LANGUAGES.find((l) => l.code === sourceLang) || LANGUAGES[0];
-  const currentTarget = LANGUAGES.find((l) => l.code === targetLang) || LANGUAGES[1];
+  const currentSource = getLanguageMeta(sourceLang);
+  const currentTarget = getLanguageMeta(targetLang);
 
-  const username = userEmail ? userEmail.split("@")[0] : "aydintolga008";
+  const username = (userEmail ? userEmail.split("@")[0] : "") || "user";
   const userInitial = username.charAt(0).toUpperCase();
 
   const isDashboardLayout = activeTab === "profile" || activeTab === "settings";
@@ -347,65 +416,61 @@ export function ExactBionicApp({
               <button
                 type="button"
                 onClick={() => setActiveTab("translate")}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-start"
               >
                 <Home className="size-4 text-gray-400" />
-                <span>Ana Sayfa</span>
+                <span>{t("nav.home", siteLang)}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("profile")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all text-left font-semibold ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all text-start font-semibold ${
                   activeTab === "profile"
                     ? "bg-white text-gray-900 shadow-xs border border-gray-200/70"
                     : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
                 }`}
               >
                 <User className="size-4 text-gray-900" />
-                <span>Profil & İstatistikler</span>
+                <span>{t("nav.profile", siteLang)}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("test")}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-start"
               >
                 <FileText className="size-4 text-gray-400" />
-                <span>Testler</span>
+                <span>{t("nav.test", siteLang)}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("assistant")}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-all text-start"
               >
                 <Zap className="size-4 text-gray-400" />
-                <span>AI Asistan</span>
+                <span>{t("nav.assistant", siteLang)}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("settings")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all text-left font-semibold ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all text-start font-semibold ${
                   activeTab === "settings"
                     ? "bg-white text-gray-900 shadow-xs border border-gray-200/70"
                     : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
                 }`}
               >
                 <Settings className="size-4 text-gray-500" />
-                <span>Ayarlar</span>
+                <span>{t("nav.settings", siteLang)}</span>
               </button>
             </nav>
           </div>
 
           <div className="pt-8 space-y-2 text-[11px] text-gray-400">
             <div className="h-px w-6 bg-gray-300" />
-            <p className="leading-relaxed font-medium text-gray-500">
-              Daha hızlı,
-              <br />
-              daha anlamlı.
-            </p>
+            <p className="leading-relaxed font-medium text-gray-500">{t("tagline", siteLang)}</p>
             <div className="flex items-center gap-1 text-gray-500 font-medium pt-1">
               <span className="size-1.5 rotate-45 border border-gray-400 inline-block" />
               <span>BionicText</span>
@@ -423,6 +488,7 @@ export function ExactBionicApp({
           </div>
 
           <div className="flex items-center gap-2">
+            <SiteLanguageSwitcher siteLang={siteLang} onSelect={handleSiteLanguageSelect} />
             <button
               type="button"
               onClick={() => setActiveTab("settings")}
@@ -431,8 +497,8 @@ export function ExactBionicApp({
                   ? "border-black bg-black text-white"
                   : "border-gray-200 bg-white text-gray-700"
               }`}
-              title="Ayarlar"
-              aria-label="Ayarlar"
+              title={t("nav.settings", siteLang)}
+              aria-label={t("nav.settings", siteLang)}
             >
               <Settings className="size-4" />
             </button>
@@ -441,7 +507,7 @@ export function ExactBionicApp({
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-full border border-gray-200 bg-white text-gray-800"
-              aria-label="Menüyü Aç"
+              aria-label={t("nav.menu", siteLang)}
             >
               {mobileMenuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
             </button>
@@ -453,7 +519,9 @@ export function ExactBionicApp({
           <div className="md:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-150">
             <div className="bg-white rounded-t-3xl p-6 space-y-4 max-h-[80vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <span className="font-display text-lg font-medium text-gray-900">Menü</span>
+                <span className="font-display text-lg font-medium text-gray-900">
+                  {t("nav.menu", siteLang)}
+                </span>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
@@ -472,7 +540,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-gray-200 flex flex-col items-start gap-2 text-gray-800 hover:bg-gray-50"
                 >
                   <Home className="size-4 text-gray-500" />
-                  <span>Ana Sayfa (Çeviri)</span>
+                  <span>{t("nav.translate", siteLang)}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -482,7 +550,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-gray-900 bg-gray-50 flex flex-col items-start gap-2 text-gray-900 font-semibold"
                 >
                   <User className="size-4 text-black" />
-                  <span>Profil & İstatistikler</span>
+                  <span>{t("nav.profile", siteLang)}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -492,7 +560,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-gray-200 flex flex-col items-start gap-2 text-gray-800 hover:bg-gray-50"
                 >
                   <FileText className="size-4 text-gray-500" />
-                  <span>Okuma Testleri</span>
+                  <span>{t("nav.test", siteLang)}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -502,7 +570,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-gray-200 flex flex-col items-start gap-2 text-gray-800 hover:bg-gray-50"
                 >
                   <Zap className="size-4 text-gray-500" />
-                  <span>AI Asistan</span>
+                  <span>{t("nav.assistant", siteLang)}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -512,7 +580,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-gray-200 flex flex-col items-start gap-2 text-gray-800 hover:bg-gray-50"
                 >
                   <Settings className="size-4 text-gray-500" />
-                  <span>Ayarlar</span>
+                  <span>{t("nav.settings", siteLang)}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -522,7 +590,7 @@ export function ExactBionicApp({
                   className="p-3 rounded-2xl border border-red-200 bg-red-50/50 flex flex-col items-start gap-2 text-red-600"
                 >
                   <LogOut className="size-4 text-red-500" />
-                  <span>Çıkış Yap</span>
+                  <span>{t("btn.logout", siteLang)}</span>
                 </button>
               </div>
             </div>
@@ -532,11 +600,12 @@ export function ExactBionicApp({
         {/* MAIN DASHBOARD CONTENT */}
         <div className="flex-1 flex flex-col justify-between overflow-y-auto min-w-0">
           <header className="hidden md:flex px-6 lg:px-10 py-5 items-center justify-end gap-3.5 border-b border-gray-200/50">
+            <SiteLanguageSwitcher siteLang={siteLang} onSelect={handleSiteLanguageSelect} />
             <button
               type="button"
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-black shadow-2xs transition-colors"
-              title="Tema Değiştir"
+              title={t("theme.toggle", siteLang)}
             >
               {isDarkMode ? <Moon className="size-4" /> : <Sun className="size-4" />}
             </button>
@@ -555,14 +624,16 @@ export function ExactBionicApp({
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-3xl border border-gray-200 bg-white p-3 shadow-2xl space-y-2 animate-in fade-in-50 zoom-in-95 duration-150">
+                <div className="absolute end-0 top-full mt-2 z-50 w-60 rounded-3xl border border-gray-200 bg-white p-3 shadow-2xl space-y-2 animate-in fade-in-50 zoom-in-95 duration-150">
                   <div className="p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-3">
                     <div className="flex size-9 items-center justify-center rounded-full bg-[#121620] text-white text-xs font-bold">
                       {userInitial}
                     </div>
                     <div className="overflow-hidden text-xs">
                       <div className="font-semibold text-gray-900 truncate">{userEmail}</div>
-                      <div className="text-[10px] text-gray-500 font-medium">BionicText Hesabı</div>
+                      <div className="text-[10px] text-gray-500 font-medium">
+                        {t("user.account", siteLang)}
+                      </div>
                     </div>
                   </div>
 
@@ -573,11 +644,11 @@ export function ExactBionicApp({
                         setActiveTab("profile");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-start"
                     >
                       <div className="flex items-center gap-2">
                         <User className="size-3.5 text-gray-500" />
-                        <span>Profil</span>
+                        <span>{t("nav.profileShort", siteLang)}</span>
                       </div>
                       <ArrowRight className="size-3 text-gray-400" />
                     </button>
@@ -588,11 +659,11 @@ export function ExactBionicApp({
                         setActiveTab("settings");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-start"
                     >
                       <div className="flex items-center gap-2">
                         <Settings className="size-3.5 text-gray-500" />
-                        <span>Ayarlar</span>
+                        <span>{t("nav.settings", siteLang)}</span>
                       </div>
                       <ArrowRight className="size-3 text-gray-400" />
                     </button>
@@ -610,7 +681,7 @@ export function ExactBionicApp({
                   >
                     <div className="flex items-center gap-2">
                       <LogOut className="size-3.5" />
-                      <span>Çıkış Yap</span>
+                      <span>{t("btn.logout", siteLang)}</span>
                     </div>
                     <ArrowRight className="size-3 text-red-400" />
                   </button>
@@ -643,14 +714,14 @@ export function ExactBionicApp({
             className="flex flex-col items-center gap-1 p-2 text-[10px] text-gray-500 hover:text-black font-medium"
           >
             <Home className="size-4" />
-            <span>Çeviri</span>
+            <span>{t("nav.translate", siteLang)}</span>
           </button>
           <button
             onClick={() => setActiveTab("test")}
             className="flex flex-col items-center gap-1 p-2 text-[10px] text-gray-500 hover:text-black font-medium"
           >
             <FileText className="size-4" />
-            <span>Test</span>
+            <span>{t("nav.testShort", siteLang)}</span>
           </button>
           <button
             onClick={() => setActiveTab("assistant")}
@@ -666,7 +737,7 @@ export function ExactBionicApp({
             }`}
           >
             <User className="size-4" />
-            <span>Profil</span>
+            <span>{t("nav.profileShort", siteLang)}</span>
           </button>
           <button
             onClick={() => setActiveTab("settings")}
@@ -675,7 +746,7 @@ export function ExactBionicApp({
             }`}
           >
             <Settings className="size-4" />
-            <span>Ayarlar</span>
+            <span>{t("nav.settings", siteLang)}</span>
           </button>
         </div>
       </div>
@@ -715,7 +786,7 @@ export function ExactBionicApp({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            Çeviri
+            {t("nav.translate", siteLang)}
           </button>
 
           <button
@@ -726,18 +797,7 @@ export function ExactBionicApp({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            Test
-          </button>
-
-          <button
-            onClick={() => setActiveTab("exercises")}
-            className={`px-4 py-1.5 text-xs sm:text-sm transition-all rounded-full font-medium ${
-              activeTab === "exercises"
-                ? "bg-white text-gray-900 shadow-sm border border-gray-200/80 font-semibold"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Göz Egzersizleri
+            {t("nav.test", siteLang)}
           </button>
 
           <button
@@ -748,7 +808,7 @@ export function ExactBionicApp({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            Okuma Yarışı
+            {t("nav.race", siteLang)}
           </button>
 
           <button
@@ -759,22 +819,13 @@ export function ExactBionicApp({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            AI Asistan
+            {t("nav.assistant", siteLang)}
           </button>
         </nav>
 
-        {/* Right User Profile & Auth Section */}
+        {/* Right User Profile & Language Switcher Section */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick Settings Icon */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("settings")}
-            className="p-2 rounded-full border border-gray-300/80 bg-white/80 hover:bg-white text-gray-700 shadow-xs backdrop-blur-sm transition-colors"
-            title="Ayarlar"
-            aria-label="Ayarlar"
-          >
-            <Sliders className="size-4" />
-          </button>
+          <SiteLanguageSwitcher siteLang={siteLang} onSelect={handleSiteLanguageSelect} />
 
           {isLoggedIn ? (
             <div ref={profileDropdownRef} className="relative">
@@ -797,7 +848,7 @@ export function ExactBionicApp({
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 animate-in fade-in-50 zoom-in-95 duration-150">
+                <div className="absolute end-0 top-full mt-2 z-50 w-60 rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 animate-in fade-in-50 zoom-in-95 duration-150">
                   <div className="p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-full bg-black text-white text-sm font-bold shrink-0 shadow-xs">
                       {userInitial}
@@ -806,7 +857,9 @@ export function ExactBionicApp({
                       <div className="text-xs font-semibold text-gray-900 truncate">
                         {userEmail}
                       </div>
-                      <div className="text-[10px] text-gray-500 font-medium">BionicText Hesabı</div>
+                      <div className="text-[10px] text-gray-500 font-medium">
+                        {t("user.account", siteLang)}
+                      </div>
                     </div>
                   </div>
 
@@ -817,11 +870,11 @@ export function ExactBionicApp({
                         setProfileDropdownOpen(false);
                         setActiveTab("profile");
                       }}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-left group"
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-start group"
                     >
                       <div className="flex items-center gap-2.5">
                         <User className="size-4 text-gray-500 group-hover:text-black" />
-                        <span>Profil & İstatistikler</span>
+                        <span>{t("nav.profile", siteLang)}</span>
                       </div>
                       <ArrowRight className="size-3 text-gray-400 group-hover:text-black" />
                     </button>
@@ -832,11 +885,11 @@ export function ExactBionicApp({
                         setProfileDropdownOpen(false);
                         setActiveTab("settings");
                       }}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-left group"
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-medium text-gray-800 hover:bg-gray-100 transition-colors text-start group"
                     >
                       <div className="flex items-center gap-2.5">
                         <Settings className="size-4 text-gray-500 group-hover:text-black" />
-                        <span>Ayarlar</span>
+                        <span>{t("nav.settings", siteLang)}</span>
                       </div>
                       <ArrowRight className="size-3 text-gray-400 group-hover:text-black" />
                     </button>
@@ -854,7 +907,7 @@ export function ExactBionicApp({
                   >
                     <div className="flex items-center gap-2.5">
                       <LogOut className="size-4" />
-                      <span>Çıkış Yap</span>
+                      <span>{t("btn.logout", siteLang)}</span>
                     </div>
                     <ArrowRight className="size-3 text-red-400" />
                   </button>
@@ -866,7 +919,7 @@ export function ExactBionicApp({
               onClick={onGoToLogin}
               className="flex items-center gap-2 rounded-full border border-gray-300/80 bg-white/80 py-1.5 pl-3.5 pr-1.5 text-xs sm:text-sm font-medium text-gray-800 shadow-xs backdrop-blur-sm transition-colors hover:bg-white"
             >
-              <span>Giriş Yap</span>
+              <span>{t("btn.login", siteLang)}</span>
               <span className="flex size-6 sm:size-7 items-center justify-center rounded-full bg-black text-white">
                 <ArrowRight className="size-3 sm:size-3.5" />
               </span>
@@ -885,11 +938,11 @@ export function ExactBionicApp({
                 onGoToProfile={() => setActiveTab("profile")}
               />
             )}
-            {activeTab === "exercises" && (
-              <EyeExerciseView onBackToTranslate={() => setActiveTab("translate")} />
-            )}
             {activeTab === "race" && (
-              <ReadingRaceView onBackToTranslate={() => setActiveTab("translate")} />
+              <ReadingRacePage
+                onBackToTranslate={() => setActiveTab("translate")}
+                userEmail={userEmail}
+              />
             )}
             {activeTab === "assistant" && (
               <AIAssistantPage onBackToTranslate={() => setActiveTab("translate")} />
@@ -898,22 +951,6 @@ export function ExactBionicApp({
         ) : (
           /* Çeviri Screen */
           <div className="space-y-4 sm:space-y-6">
-            {/* HERO HEADLINE */}
-            <div className="space-y-1 sm:space-y-2">
-              <div className="flex items-center gap-2 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                <span>BİYONİK METİN ÇEVİRİCİ</span>
-                <span className="h-px w-6 bg-gray-400/60 inline-block" />
-              </div>
-              <h1 className="font-display text-2xl sm:text-4xl lg:text-5xl font-light tracking-tight text-gray-900 leading-tight">
-                BionicText ile
-                <br />
-                sınırlarını aş.
-              </h1>
-              <p className="text-gray-600 text-xs sm:text-sm font-normal leading-relaxed max-w-lg">
-                Metinleri çevir, biyonik okuma formatında gör ve okuma hızını 2 katına çıkar.
-              </p>
-            </div>
-
             {/* CENTRAL TRANSLATION & BIONIC CARD */}
             <div className="relative rounded-3xl border border-gray-200/90 bg-white/95 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-7 backdrop-blur-md">
               {/* Language Selector Bar */}
@@ -930,7 +967,7 @@ export function ExactBionicApp({
                   >
                     <span className="text-base sm:text-sm">{currentSource.flag}</span>
                     <span className="font-semibold truncate max-w-[85px] sm:max-w-none">
-                      {currentSource.name}
+                      {currentSource.nativeName}
                     </span>
                     <ChevronDown
                       className={`size-3 text-gray-400 shrink-0 transition-transform duration-150 ${
@@ -940,29 +977,47 @@ export function ExactBionicApp({
                   </button>
 
                   {sourceDropdownOpen && (
-                    <div className="absolute left-0 top-full mt-2 z-50 w-48 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl space-y-0.5 max-h-60 overflow-y-auto animate-in fade-in-50 duration-150">
-                      {LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => {
-                            setSourceLang(lang.code);
-                            setSourceDropdownOpen(false);
-                            handleTranslate(undefined, lang.code, targetLang);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors ${
-                            sourceLang === lang.code
-                              ? "font-semibold text-black bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{lang.flag}</span>
-                            <span>{lang.name}</span>
-                          </div>
-                          {sourceLang === lang.code && <Check className="size-3 text-black" />}
-                        </button>
-                      ))}
+                    <div className="absolute start-0 top-full mt-2 z-50 w-64 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl space-y-1 max-h-72 flex flex-col animate-in fade-in-50 duration-150">
+                      <div className="relative pb-1">
+                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={sourceSearch}
+                          onChange={(e) => setSourceSearch(e.target.value)}
+                          placeholder={t("select.search", siteLang)}
+                          className="w-full pl-8 pr-3 py-1 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:outline-none focus:border-black"
+                        />
+                      </div>
+                      <div className="overflow-y-auto max-h-56 space-y-0.5 divide-y divide-gray-50">
+                        {LANGUAGES.filter(
+                          (l) =>
+                            l.name.toLowerCase().includes(sourceSearch.toLowerCase()) ||
+                            l.nativeName.toLowerCase().includes(sourceSearch.toLowerCase()) ||
+                            l.code.toLowerCase().includes(sourceSearch.toLowerCase()),
+                        ).map((lang) => (
+                          <button
+                            key={lang.code}
+                            type="button"
+                            onClick={() => {
+                              setSourceLang(lang.code);
+                              setSourceDropdownOpen(false);
+                              setSourceSearch("");
+                              handleTranslate(undefined, lang.code, targetLang);
+                            }}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors ${
+                              sourceLang === lang.code
+                                ? "font-semibold text-black bg-gray-100"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{lang.flag}</span>
+                              <span className="truncate">{lang.nativeName}</span>
+                            </div>
+                            {sourceLang === lang.code && <Check className="size-3.5 text-black" />}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -972,8 +1027,8 @@ export function ExactBionicApp({
                   type="button"
                   onClick={handleSwapLanguages}
                   className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:text-black hover:bg-gray-50 shadow-2xs transition-all active:scale-90"
-                  title="Dilleri Değiştir"
-                  aria-label="Dilleri Değiştir"
+                  title={t("btn.swap", siteLang)}
+                  aria-label={t("btn.swap", siteLang)}
                 >
                   <ArrowLeftRight className="size-3.5" />
                 </button>
@@ -990,7 +1045,7 @@ export function ExactBionicApp({
                   >
                     <span className="text-base sm:text-sm">{currentTarget.flag}</span>
                     <span className="font-semibold truncate max-w-[85px] sm:max-w-none">
-                      {currentTarget.name}
+                      {currentTarget.nativeName}
                     </span>
                     <ChevronDown
                       className={`size-3 text-gray-400 shrink-0 transition-transform duration-150 ${
@@ -1000,29 +1055,47 @@ export function ExactBionicApp({
                   </button>
 
                   {targetDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl space-y-0.5 max-h-60 overflow-y-auto animate-in fade-in-50 duration-150">
-                      {LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => {
-                            setTargetLang(lang.code);
-                            setTargetDropdownOpen(false);
-                            handleTranslate(undefined, sourceLang, lang.code);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors ${
-                            targetLang === lang.code
-                              ? "font-semibold text-black bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{lang.flag}</span>
-                            <span>{lang.name}</span>
-                          </div>
-                          {targetLang === lang.code && <Check className="size-3 text-black" />}
-                        </button>
-                      ))}
+                    <div className="absolute end-0 top-full mt-2 z-50 w-64 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl space-y-1 max-h-72 flex flex-col animate-in fade-in-50 duration-150">
+                      <div className="relative pb-1">
+                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={targetSearch}
+                          onChange={(e) => setTargetSearch(e.target.value)}
+                          placeholder={t("select.search", siteLang)}
+                          className="w-full pl-8 pr-3 py-1 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:outline-none focus:border-black"
+                        />
+                      </div>
+                      <div className="overflow-y-auto max-h-56 space-y-0.5 divide-y divide-gray-50">
+                        {LANGUAGES.filter(
+                          (l) =>
+                            l.name.toLowerCase().includes(targetSearch.toLowerCase()) ||
+                            l.nativeName.toLowerCase().includes(targetSearch.toLowerCase()) ||
+                            l.code.toLowerCase().includes(targetSearch.toLowerCase()),
+                        ).map((lang) => (
+                          <button
+                            key={lang.code}
+                            type="button"
+                            onClick={() => {
+                              setTargetLang(lang.code);
+                              setTargetDropdownOpen(false);
+                              setTargetSearch("");
+                              handleTranslate(undefined, sourceLang, lang.code);
+                            }}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors ${
+                              targetLang === lang.code
+                                ? "font-semibold text-black bg-gray-100"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{lang.flag}</span>
+                              <span className="truncate">{lang.nativeName}</span>
+                            </div>
+                            {targetLang === lang.code && <Check className="size-3.5 text-black" />}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1039,7 +1112,7 @@ export function ExactBionicApp({
                         setSourceText(e.target.value);
                         if (!e.target.value.trim()) setTranslatedText("");
                       }}
-                      placeholder="Çevirmek ve biyonik okumak için yazın..."
+                      placeholder={t("placeholder.source", siteLang)}
                       className="w-full h-full min-h-[140px] resize-none bg-transparent font-sans text-sm sm:text-base leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none"
                       maxLength={5000}
                     />
@@ -1056,8 +1129,8 @@ export function ExactBionicApp({
                           type="button"
                           onClick={handleClearText}
                           className="p-1 rounded-md text-gray-400 hover:text-red-500 transition-colors"
-                          title="Temizle"
-                          aria-label="Metni Temizle"
+                          title={t("btn.clear", siteLang)}
+                          aria-label={t("btn.clear", siteLang)}
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -1079,8 +1152,8 @@ export function ExactBionicApp({
                         className={`p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors shadow-2xs active:scale-95 ${
                           isListening ? "text-red-500 border-red-300 animate-pulse bg-red-50" : ""
                         }`}
-                        title="Sesle Yaz"
-                        aria-label="Sesle Yaz"
+                        title={t("btn.voice", siteLang)}
+                        aria-label={t("btn.voice", siteLang)}
                       >
                         {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                       </button>
@@ -1089,8 +1162,8 @@ export function ExactBionicApp({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors shadow-2xs active:scale-95"
-                        title="Dosya Yükle"
-                        aria-label="Dosya Yükle"
+                        title={t("btn.upload", siteLang)}
+                        aria-label={t("btn.upload", siteLang)}
                       >
                         <Upload className="size-4" />
                       </button>
@@ -1101,7 +1174,11 @@ export function ExactBionicApp({
                         onClick={() => handleTranslate()}
                         className="flex items-center gap-1.5 rounded-full bg-[#1c1c1e] hover:bg-black text-white px-4 sm:px-5 py-2 text-xs font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50"
                       >
-                        <span>{isTranslating ? "Çevriliyor..." : "Çevir"}</span>
+                        <span>
+                          {isTranslating
+                            ? t("btn.translating", siteLang)
+                            : t("btn.translate", siteLang)}
+                        </span>
                         <ArrowRight className="size-3.5" />
                       </button>
                     </div>
@@ -1114,15 +1191,17 @@ export function ExactBionicApp({
                     <div>
                       <div className="flex items-center justify-between pb-2.5 shrink-0">
                         <span className="text-xs sm:text-sm font-medium text-gray-500">
-                          {translatedText ? "Çeviri Sonucu" : "Çeviri burada görünecek"}
+                          {translatedText
+                            ? t("label.targetResult", siteLang)
+                            : t("placeholder.target", siteLang)}
                         </span>
 
                         <div className="flex items-center gap-1.5 text-gray-500">
                           <button
                             onClick={handleCopy}
                             className="p-1.5 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                            title="Kopyala"
-                            aria-label="Kopyala"
+                            title={copied ? t("btn.copied", siteLang) : t("btn.copy", siteLang)}
+                            aria-label={t("btn.copy", siteLang)}
                           >
                             {copied ? (
                               <Check className="size-4 text-emerald-600" />
@@ -1135,8 +1214,10 @@ export function ExactBionicApp({
                             className={`p-1.5 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors ${
                               isSpeaking ? "text-black bg-gray-100" : ""
                             }`}
-                            title="Sesli Dinle"
-                            aria-label="Sesli Dinle"
+                            title={
+                              isSpeaking ? t("btn.stopListen", siteLang) : t("btn.listen", siteLang)
+                            }
+                            aria-label={t("btn.listen", siteLang)}
                           >
                             {isSpeaking ? (
                               <VolumeX className="size-4" />
@@ -1150,7 +1231,9 @@ export function ExactBionicApp({
                       {/* Biyonik Okuma Control Box */}
                       <div className="rounded-2xl border border-gray-200/80 bg-gray-50/80 p-3 flex flex-wrap items-center justify-between gap-2.5 mb-3 shrink-0">
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-semibold text-gray-900">Biyonik Okuma</span>
+                          <span className="text-xs font-semibold text-gray-900">
+                            {t("bionic.mode", siteLang)}
+                          </span>
                           <button
                             type="button"
                             role="switch"
@@ -1174,7 +1257,7 @@ export function ExactBionicApp({
                           className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 text-xs px-2.5 py-1.5 font-semibold shadow-2xs transition-colors active:scale-95"
                         >
                           <BookOpen className="size-3.5 text-gray-600" />
-                          <span>Tam Ekran Okuma</span>
+                          <span>{t("btn.fullscreen", siteLang)}</span>
                           <ArrowRight className="size-3" />
                         </button>
                       </div>
@@ -1196,7 +1279,7 @@ export function ExactBionicApp({
                           )
                         ) : (
                           <p className="text-gray-400 italic text-xs sm:text-sm">
-                            Henüz bir metin çevrilmedi.
+                            {t("label.noTextYet", siteLang)}
                           </p>
                         )}
                       </div>
@@ -1210,31 +1293,39 @@ export function ExactBionicApp({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 pt-2 pb-2 text-center text-gray-800">
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
                 <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
-                  <FileText className="size-4" />
-                </span>
-                <div className="text-left">
-                  <div className="text-xs font-semibold text-gray-900">Hızlı Çeviri</div>
-                  <div className="text-[11px] text-gray-500">8 Farklı Dilde Anında Çeviri</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
                   <Zap className="size-4" />
                 </span>
-                <div className="text-left">
-                  <div className="text-xs font-semibold text-gray-900">Biyonik Format</div>
-                  <div className="text-[11px] text-gray-500">2x Daha Hızlı Okuma & Anlama</div>
+                <div className="text-start">
+                  <div className="text-xs font-semibold text-gray-900">
+                    {t("feature.fastTitle", siteLang)}
+                  </div>
+                  <div className="text-[11px] text-gray-500">{t("feature.fastDesc", siteLang)}</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
                 <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
-                  <Activity className="size-4" />
+                  <Globe className="size-4" />
                 </span>
-                <div className="text-left">
-                  <div className="text-xs font-semibold text-gray-900">Odaklanma Modu</div>
-                  <div className="text-[11px] text-gray-500">Dikkat Dağınıklığını Sıfırla</div>
+                <div className="text-start">
+                  <div className="text-xs font-semibold text-gray-900">
+                    {t("feature.multiTitle", siteLang)}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    {t("feature.multiDesc", siteLang)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
+                  <Sparkles className="size-4" />
+                </span>
+                <div className="text-start">
+                  <div className="text-xs font-semibold text-gray-900">
+                    {t("feature.aiTitle", siteLang)}
+                  </div>
+                  <div className="text-[11px] text-gray-500">{t("feature.aiDesc", siteLang)}</div>
                 </div>
               </div>
             </div>
@@ -1245,9 +1336,9 @@ export function ExactBionicApp({
       {/* DESKTOP FOOTER */}
       <footer className="hidden lg:flex relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-10 py-5 border-t border-gray-300/40 items-center justify-between text-xs text-gray-500 gap-4">
         <div className="flex items-center gap-3">
-          <span>BionicText v2.0</span>
+          <span>BionicText</span>
           <span>•</span>
-          <span>Yapay Zeka Destekli Biyonik Okuma & Göz Egzersizleri</span>
+          <span>{t("footer.desc", siteLang)}</span>
         </div>
 
         <div className="flex items-center gap-6">
@@ -1255,25 +1346,25 @@ export function ExactBionicApp({
             onClick={() => setActiveTab("test")}
             className="hover:text-gray-900 transition-colors"
           >
-            Hız Testi
+            {t("nav.test", siteLang)}
+          </button>
+          <button
+            onClick={() => setActiveTab("race")}
+            className="hover:text-gray-900 transition-colors"
+          >
+            {t("nav.race", siteLang)}
           </button>
           <button
             onClick={() => setActiveTab("assistant")}
             className="hover:text-gray-900 transition-colors"
           >
-            AI Asistan
-          </button>
-          <button
-            onClick={() => setActiveTab("exercises")}
-            className="hover:text-gray-900 transition-colors"
-          >
-            Egzersizler
+            {t("nav.assistant", siteLang)}
           </button>
           <button
             onClick={() => setActiveTab("profile")}
             className="hover:text-gray-900 transition-colors font-medium text-gray-900"
           >
-            Profil & İstatistikler
+            {t("nav.profile", siteLang)}
           </button>
         </div>
       </footer>
@@ -1290,7 +1381,7 @@ export function ExactBionicApp({
           }`}
         >
           <Home className="size-4" />
-          <span className="text-[10px]">Çeviri</span>
+          <span className="text-[10px]">{t("nav.translate", siteLang)}</span>
         </button>
 
         <button
@@ -1303,20 +1394,20 @@ export function ExactBionicApp({
           }`}
         >
           <FileText className="size-4" />
-          <span className="text-[10px]">Test</span>
+          <span className="text-[10px]">{t("nav.testShort", siteLang)}</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab("exercises")}
+          onClick={() => setActiveTab("race")}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-xl transition-all ${
-            activeTab === "exercises"
+            activeTab === "race"
               ? "text-black font-semibold bg-gray-100/80"
               : "text-gray-500 hover:text-gray-900"
           }`}
         >
-          <Activity className="size-4" />
-          <span className="text-[10px]">Egzersiz</span>
+          <Zap className="size-4" />
+          <span className="text-[10px]">{t("nav.race", siteLang)}</span>
         </button>
 
         <button
@@ -1335,14 +1426,10 @@ export function ExactBionicApp({
         <button
           type="button"
           onClick={() => setActiveTab("profile")}
-          className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-xl transition-all ${
-            activeTab === "profile"
-              ? "text-black font-semibold bg-gray-100/80"
-              : "text-gray-500 hover:text-gray-900"
-          }`}
+          className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-xl transition-all ${"text-gray-500 hover:text-gray-900"}`}
         >
           <User className="size-4" />
-          <span className="text-[10px]">Profil</span>
+          <span className="text-[10px]">{t("nav.profileShort", siteLang)}</span>
         </button>
       </nav>
 
@@ -1352,6 +1439,7 @@ export function ExactBionicApp({
         onClose={() => setIsReaderModalOpen(false)}
         text={translatedText || sourceText}
         isBionic={isBionic}
+        lang={translatedText ? targetLang : sourceLang}
       />
     </div>
   );

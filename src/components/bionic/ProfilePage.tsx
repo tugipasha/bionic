@@ -54,7 +54,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
     };
   }, []);
 
-  const username = userEmail ? userEmail.split("@")[0] : "aydintolga008";
+  const username = (userEmail ? userEmail.split("@")[0] : "") || "user";
   const userInitial = username.charAt(0).toUpperCase();
 
   if (!stats) return null;
@@ -99,7 +99,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
           (acc, curr, idx, arr) =>
             idx === 0
               ? `M ${curr.x} ${curr.y}`
-              : `${acc} Q ${(arr[idx - 1].x + curr.x) / 2} ${arr[idx - 1].y}, ${curr.x} ${curr.y}`,
+              : `${acc} Q ${((arr[idx - 1]?.x ?? curr.x) + curr.x) / 2} ${arr[idx - 1]?.y ?? curr.y}, ${curr.x} ${curr.y}`,
           "",
         )
       : "";
@@ -110,7 +110,7 @@ export function ProfilePage({ userEmail, onNavigate }: ProfilePageProps) {
           (acc, curr, idx, arr) =>
             idx === 0
               ? `M ${curr.x} ${curr.y}`
-              : `${acc} Q ${(arr[idx - 1].x + curr.x) / 2} ${arr[idx - 1].y}, ${curr.x} ${curr.y}`,
+              : `${acc} Q ${((arr[idx - 1]?.x ?? curr.x) + curr.x) / 2} ${arr[idx - 1]?.y ?? curr.y}, ${curr.x} ${curr.y}`,
           "",
         )
       : "";

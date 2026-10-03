@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSiteLanguage } from "@/lib/i18n";
 import {
   Bot,
   Sparkles,
@@ -8,12 +9,12 @@ import {
   Send,
   RotateCcw,
   CheckCheck,
-  User,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { convertToBionicHtml } from "./bionic-transformer";
-import { getUserSettings, UserSettings } from "@/lib/user-settings-store";
+import { getUserSettings, type UserSettings } from "@/lib/user-settings-store";
+import { logAIInteraction } from "@/lib/supabase-db";
 
 export interface ChatMessage {
   id: string;
@@ -43,18 +44,20 @@ interface ISpeechRecognitionInstance {
 }
 
 const QUICK_PROMPTS = [
-  "Biyonik okuma teknikleri ile okuma hızımı nasıl artırabilirim?",
-  "Zor ve akademik bir paragrafı özetleyip basitleştir.",
-  "Hızlı okurken anlama derinliğini korumanın yolları nelerdir?",
-  "Odaklanmayı artıran bir günlük çalışma rutini öner.",
+  "BionicText ile okuma hızımı nasıl 2-3 katına çıkarabilirim?",
+  "Zor bir metni benim için özetle ve sadeleştir.",
+  "Hızlı okuma testinde WPM skorumu nasıl yükseltirim?",
+  "Biyonik fiksasyon ve sakkad ayarlarını nasıl kullanmalıyım?",
 ];
 
 export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
+  const { siteLang } = useSiteLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isBionicFormat, setIsBionicFormat] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [currentModel, setCurrentModel] = useState<string>("Groq AI (Llama 3.3)");
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -154,7 +157,8 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
       time: timeStr,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedHistory = [...messages, userMsg];
+    setMessages(updatedHistory);
     setInputText("");
     setIsLoading(true);
 
@@ -164,8 +168,8 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: query,
-          model: "openai/gpt-oss-120b",
-          messages: messages.map((m) => ({
+          lang: siteLang,
+          messages: updatedHistory.map((m) => ({
             role: m.sender === "user" ? "user" : "assistant",
             content: m.text,
           })),
@@ -173,7 +177,7 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
       });
 
       const data = await res.json();
-      if (res.ok && data.success && data.text) {
+      if (res.ok && data.text) {
         const aiMsg: ChatMessage = {
           id: `ai-${Date.now()}`,
           sender: "ai",
@@ -183,10 +187,19 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
           ).padStart(2, "0")}`,
         };
         setMessages((prev) => [...prev, aiMsg]);
+        if (data.model) setCurrentModel(`Groq AI (${data.model})`);
+
+        logAIInteraction({
+          role: "assistant",
+          prompt: query,
+          response: data.text,
+          model: data.model || "llama-3.3-70b-versatile",
+        }).catch(() => {});
       } else {
         const fallbackText =
+          data.message ||
           data.error ||
-          "Biyonik okuma, kelimelerin başlangıç harflerini kalınlaştırarak gözün sabitleme süresini azaltır. Bu sayede dikkat dağınıklığı azalır ve kavrama hızı 2 katına çıkar.";
+          "BionicText, kelimelerin başlangıç harflerini kalınlaştırarak gözün sabitleme süresini azaltır. Bu sayede dikkat dağınıklığı azalır ve kavrama hızı 2 katına çıkar.";
         const aiMsg: ChatMessage = {
           id: `ai-${Date.now()}`,
           sender: "ai",
@@ -225,12 +238,12 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-display text-xs sm:text-sm font-semibold text-gray-900">
-                  BionicText AI
+                  BionicText AI Asistan
                 </span>
                 <span className="flex size-2 rounded-full bg-emerald-500" />
               </div>
               <div className="text-[9px] sm:text-[10px] text-gray-400 font-mono">
-                Model: GPT-OSS-120B
+                {currentModel}
               </div>
             </div>
           </div>
@@ -277,11 +290,11 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
               </div>
               <div className="space-y-1 max-w-md">
                 <h3 className="font-display text-sm sm:text-base font-semibold text-gray-900">
-                  Size nasıl yardımcı olabilirim?
+                  BionicText Asistanına Hoş Geldiniz
                 </h3>
                 <p className="text-xs text-gray-500 leading-relaxed px-2">
-                  Metinlerinizi özetletebilir, karmaşık paragrafları basitleştirebilir veya hızlı
-                  okuma teknikleri sorabilirsiniz.
+                  Metinlerinizi sadeleştirebilir, biyonik okuma teknikleri hakkında bilgi alabilir
+                  veya hızlı okuma testlerinizi geliştirebilirsiniz.
                 </p>
               </div>
 
@@ -330,7 +343,7 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
                       <p className="whitespace-pre-line select-text">{msg.text}</p>
                     ) : isBionicFormat ? (
                       <div
-                        className="select-text"
+                        className="select-text whitespace-pre-line"
                         dangerouslySetInnerHTML={{
                           __html: convertToBionicHtml(msg.text, {
                             fixation: userSettings.bionicFixation,
@@ -378,55 +391,74 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center gap-2 rounded-2xl border border-gray-200/90 bg-gray-50/80 p-1.5 focus-within:border-gray-400 focus-within:bg-white transition-all shadow-2xs"
+            className="relative flex items-center rounded-full border border-gray-200 bg-gray-50/70 pl-4 pr-1.5 py-1.5 shadow-2xs focus-within:border-black focus-within:bg-white transition-all"
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,.text"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 rounded-xl text-gray-500 hover:text-black hover:bg-gray-100 transition-colors shrink-0"
-              title="Dosya Ekle"
-              aria-label="Dosya Ekle"
-            >
-              <Paperclip className="size-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleSpeechRecognition}
-              className={`p-2 rounded-xl text-gray-500 hover:text-black hover:bg-gray-100 transition-colors shrink-0 ${
-                isListening ? "text-red-500 bg-red-50 animate-pulse" : ""
-              }`}
-              title="Sesle Yaz"
-              aria-label="Sesle Yaz"
-            >
-              {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-            </button>
-
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Sorunuzu yazın veya bir metin yapıştırın..."
-              className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 outline-none"
+              placeholder="Asistana bir metin, özetleme veya soru yazın..."
+              className="w-full bg-transparent text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 outline-none pr-2"
+              disabled={isLoading}
             />
 
-            <button
-              type="submit"
-              disabled={!inputText.trim() || isLoading}
-              className="flex size-9 items-center justify-center rounded-xl bg-black text-white hover:bg-neutral-800 disabled:opacity-40 transition-all shrink-0 active:scale-95"
-              aria-label="Gönder"
-            >
-              <Send className="size-3.5" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.text"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-full text-gray-500 hover:text-black hover:bg-gray-200/60 transition-colors"
+                title="Metin Belgesi Ekle"
+                aria-label="Metin Belgesi Ekle"
+              >
+                <Paperclip className="size-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleSpeechRecognition}
+                className={`p-2 rounded-full transition-colors ${
+                  isListening
+                    ? "bg-red-50 text-red-500 animate-pulse"
+                    : "text-gray-500 hover:text-black hover:bg-gray-200/60"
+                }`}
+                title="Sesle Yaz"
+                aria-label="Sesle Yaz"
+              >
+                {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+              </button>
+
+              <button
+                type="submit"
+                disabled={!inputText.trim() || isLoading}
+                className="flex size-8 sm:size-9 items-center justify-center rounded-full bg-black text-white hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-black transition-all shadow-xs active:scale-95"
+                title="Gönder"
+                aria-label="Gönder"
+              >
+                <Send className="size-3.5" />
+              </button>
+            </div>
           </form>
+
+          <div className="flex items-center justify-between text-[10px] text-gray-400 px-3">
+            <span>BionicText AI yanıtları doğal ve biyonik okuma formatında sunar.</span>
+            {onBackToTranslate && (
+              <button
+                type="button"
+                onClick={onBackToTranslate}
+                className="text-gray-500 hover:text-black underline font-medium"
+              >
+                Çeviriciye Dön
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,23 +1,16 @@
-import { saveSpeedTestToSheets } from "./google-sheets-db";
+import {
+  fetchReadingTests,
+  saveReadingTest,
+  clearReadingTests,
+  type TestResultRecord,
+} from "./supabase-db";
 
-export interface TestResultRecord {
-  id: string;
-  testNumber: number;
-  date: string; // e.g. "2026-10-02 14:32"
-  title: string;
-  normalWpm: number;
-  bionicWpm: number;
-  improvementPercentage: number;
-  accuracy: number;
-  durationSeconds: number;
-}
-
-const TESTS_STORAGE_KEY = "bionictext_real_tests_v2";
+export { type TestResultRecord };
 
 export function getTestHistory(): TestResultRecord[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(TESTS_STORAGE_KEY);
+    const raw = localStorage.getItem("bionictext_real_tests_v2");
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -61,28 +54,26 @@ export function saveTestResult(
 
   const updated = [...current, newEntry];
   if (typeof window !== "undefined") {
-    localStorage.setItem(TESTS_STORAGE_KEY, JSON.stringify(updated));
-    // Trigger global event so all open views (Profile, Dashboard, Navbar) update synchronously
+    localStorage.setItem("bionictext_real_tests_v2", JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent("bionictext_stats_updated", { detail: updated }));
   }
 
-  // Sync to Google Sheets in the background
-  saveSpeedTestToSheets({
-    title: newEntry.title,
-    mode: "Bionic vs Normal",
-    wpm: newEntry.bionicWpm,
-    accuracy: newEntry.accuracy,
-    durationSeconds: newEntry.durationSeconds,
-  }).catch(() => {});
+  // Trigger Supabase persistence in background
+  saveReadingTest(record).catch(() => {});
 
   return newEntry;
 }
 
 export function clearTestHistory() {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(TESTS_STORAGE_KEY);
+    localStorage.removeItem("bionictext_real_tests_v2");
     window.dispatchEvent(new CustomEvent("bionictext_stats_updated", { detail: [] }));
   }
+  clearReadingTests().catch(() => {});
+}
+
+export async function syncTestHistoryWithSupabase(): Promise<TestResultRecord[]> {
+  return await fetchReadingTests();
 }
 
 export interface CalculatedStatistics {
@@ -129,8 +120,8 @@ export function calculateStats(history: TestResultRecord[]): CalculatedStatistic
   const avgBionicWpm = Math.round(sumBionic / total);
   const avgImprovement = Number((sumImprovement / total).toFixed(1));
 
-  let bestImp = history[0];
-  let maxSpd = history[0];
+  let bestImp = history[0] as (typeof history)[number];
+  let maxSpd = history[0] as (typeof history)[number];
 
   for (const item of history) {
     if (item.improvementPercentage > bestImp.improvementPercentage) {
@@ -141,7 +132,6 @@ export function calculateStats(history: TestResultRecord[]): CalculatedStatistic
     }
   }
 
-  // Calculate consistency based on deviation
   const variance =
     history.reduce(
       (acc, curr) => acc + Math.pow(curr.improvementPercentage - avgImprovement, 2),

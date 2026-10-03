@@ -11,17 +11,27 @@ import {
   BookOpen,
   Zap,
 } from "lucide-react";
-import { convertToBionicHtml, calculateTextStats } from "./bionic-transformer";
+import { convertToBionicHtml, calculateTextStats, escapeHtml } from "./bionic-transformer";
 import { getUserSettings } from "@/lib/user-settings-store";
+import { getLanguageMeta, useSiteLanguage } from "@/lib/i18n";
 
 interface ReaderModalProps {
   isOpen: boolean;
   onClose: () => void;
   text: string;
   isBionic: boolean;
+  /** Metnin dili (sesli okuma için); verilmezse site dili kullanılır */
+  lang?: string;
 }
 
-export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: ReaderModalProps) {
+export function ReaderModal({
+  isOpen,
+  onClose,
+  text,
+  isBionic: initialBionic,
+  lang,
+}: ReaderModalProps) {
+  const { siteLang, t } = useSiteLanguage();
   const initialSettings = getUserSettings();
   const [bionicEnabled, setBionicEnabled] = useState(initialBionic);
   const [fontSize, setFontSize] = useState(
@@ -105,7 +115,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "tr-TR";
+    utterance.lang = getLanguageMeta(lang ?? siteLang).locale;
     utterance.rate = getUserSettings().ttsSpeed || 1.0;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -124,10 +134,10 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
             </span>
             <div>
               <h2 className="font-display text-sm sm:text-base font-semibold text-gray-900">
-                Biyonik Odaklanma Modu
+                {t("reader.title")}
               </h2>
               <p className="text-[10px] sm:text-xs text-gray-400">
-                {stats.wordCount} kelime • ~{stats.bionicMinutes} dk okuma süresi
+                {t("reader.stats", { words: stats.words, min: stats.readingTimeBionicMin })}
               </p>
             </div>
           </div>
@@ -147,7 +157,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
               }`}
             >
               <Zap className="size-3.5" />
-              <span>{isSpeedMode ? "Hızlı Akış Aktif" : "RSVP Modu"}</span>
+              <span>{isSpeedMode ? t("reader.rsvpActive") : t("reader.rsvp")}</span>
             </button>
 
             {/* Bionic Toggle */}
@@ -160,7 +170,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
                   : "border border-gray-200 text-gray-400"
               }`}
             >
-              <span>{bionicEnabled ? "Biyonik Açık" : "Biyonik Kapalı"}</span>
+              <span>{bionicEnabled ? t("reader.bionicOn") : t("reader.bionicOff")}</span>
             </button>
 
             {/* TTS Audio */}
@@ -201,13 +211,11 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
                     dangerouslySetInnerHTML={{
                       __html: bionicEnabled
                         ? convertToBionicHtml(currentWord, { fixation })
-                        : currentWord,
+                        : escapeHtml(currentWord),
                     }}
                   />
                 ) : (
-                  <span className="text-gray-400 text-sm italic">
-                    Metin bulunamadı veya tamamlandı.
-                  </span>
+                  <span className="text-gray-400 text-sm italic">{t("reader.noText")}</span>
                 )}
               </div>
 
@@ -220,8 +228,8 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
                     setIsPlaying(false);
                   }}
                   className="p-2.5 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-600 active:scale-95"
-                  title="Başa Dön"
-                  aria-label="Başa Dön"
+                  title={t("reader.restart")}
+                  aria-label={t("reader.restart")}
                 >
                   <RotateCcw className="size-4" />
                 </button>
@@ -239,7 +247,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
                   ) : (
                     <>
                       <Play className="size-4 fill-current" />
-                      <span>Başlat</span>
+                      <span>{t("reader.start")}</span>
                     </>
                   )}
                 </button>
@@ -276,7 +284,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 sm:pt-4 text-xs shrink-0">
             <div className="flex items-center gap-3">
               <span className="text-gray-400 text-[11px] font-medium hidden sm:inline">
-                Yazı Boyutu:
+                {t("reader.fontSize")}
               </span>
               <div className="flex items-center gap-1">
                 {[16, 18, 20, 24].map((sz) => (
@@ -298,7 +306,7 @@ export function ReaderModal({ isOpen, onClose, text, isBionic: initialBionic }: 
 
             <div className="flex items-center gap-3">
               <span className="text-gray-400 text-[11px] font-medium hidden sm:inline">
-                Satır Aralığı:
+                {t("reader.lineHeight")}
               </span>
               <div className="flex items-center gap-1">
                 {[
