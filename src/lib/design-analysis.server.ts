@@ -2,10 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
 
-import {
-  createLovableAiGatewayRunIdFetch,
-  getLovableAiGatewayRunId,
-} from "./ai-run-id.server";
+import { createLovableAiGatewayRunIdFetch, getLovableAiGatewayRunId } from "./ai-run-id.server";
 
 const requestSchema = z.object({
   dataUrl: z
@@ -37,7 +34,8 @@ const analysisSchema = z.object({
 });
 
 function safeError(status: number, fallback: string) {
-  if (status === 402) return "AI kullanım kredisi yetersiz. Çalışma alanı faturalandırma ayarlarını kontrol edin.";
+  if (status === 402)
+    return "AI kullanım kredisi yetersiz. Çalışma alanı faturalandırma ayarlarını kontrol edin.";
   if (status === 429) return "Analiz servisi şu anda yoğun. Lütfen biraz sonra tekrar deneyin.";
   if (status === 401) return "AI analizi yapılandırılamadı.";
   return fallback;
@@ -48,7 +46,10 @@ export async function analyzeDesignRequest(request: Request) {
   try {
     input = requestSchema.parse(await request.json());
   } catch {
-    return Response.json({ error: "Geçerli bir JPG, PNG veya WebP görseli yükleyin." }, { status: 400 });
+    return Response.json(
+      { error: "Geçerli bir JPG, PNG veya WebP görseli yükleyin." },
+      { status: 400 },
+    );
   }
 
   const apiKey = process.env["LOVABLE_API_KEY"];
@@ -97,13 +98,13 @@ export async function analyzeDesignRequest(request: Request) {
 
     const output = await result.output;
     const runId = runIdFetch.getRunId();
-    return Response.json(
-      output,
-      runId ? { headers: { "X-Lovable-AIG-Run-ID": runId } } : {},
-    );
+    return Response.json(output, runId ? { headers: { "X-Lovable-AIG-Run-ID": runId } } : {});
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error)) {
-      return Response.json({ error: "Görsel için tutarlı öneriler üretilemedi. Başka bir görsel deneyin." }, { status: 422 });
+      return Response.json(
+        { error: "Görsel için tutarlı öneriler üretilemedi. Başka bir görsel deneyin." },
+        { status: 422 },
+      );
     }
     const status =
       typeof error === "object" && error !== null && "statusCode" in error

@@ -1,0 +1,5 @@
+{
+  "name": "BionicText",
+  "description": "BionicText ile okuma deneyiminizi yeniden keşfedin.",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
