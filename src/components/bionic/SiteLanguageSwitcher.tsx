@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Globe, Search } from "lucide-react";
+import { Check, ChevronDown, Globe } from "lucide-react";
 import { SITE_LANGUAGES, getLanguageMeta, t } from "@/lib/i18n";
 
 /** Emoji yerine kullanılan, dil koduyla yazılmış küçük rozet. */
@@ -82,16 +82,6 @@ export function SiteLanguageSwitcher({ siteLang, onSelect, variant = "light" }: 
             <span className="text-[11px] text-gray-400 font-mono">
               {t("lang.count", siteLang, { n: SITE_LANGUAGES.length })}
             </span>
-          </div>
-          <div className="relative">
-            <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("select.search", siteLang)}
-              className="w-full ps-8 pe-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:outline-none focus:border-black"
-            />
           </div>
           <div role="listbox" className="overflow-y-auto max-h-60 space-y-0.5 pe-1">
             {filtered.length === 0 && (

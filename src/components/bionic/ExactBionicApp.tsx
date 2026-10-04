@@ -26,9 +26,6 @@ import {
   Trash2,
   Sliders,
   Activity,
-  Globe,
-  Search,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { convertToBionicHtml } from "./bionic-transformer";
@@ -990,16 +987,6 @@ export function ExactBionicApp({
 
                   {sourceDropdownOpen && (
                     <div className="absolute start-0 top-full mt-2 z-50 w-64 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl space-y-1 max-h-72 flex flex-col animate-in fade-in-50 duration-150">
-                      <div className="relative pb-1">
-                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={sourceSearch}
-                          onChange={(e) => setSourceSearch(e.target.value)}
-                          placeholder={t("select.search", siteLang)}
-                          className="w-full pl-8 pr-3 py-1 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:outline-none focus:border-black"
-                        />
-                      </div>
                       <div className="overflow-y-auto max-h-56 space-y-0.5 divide-y divide-gray-50">
                         {LANGUAGES.filter(
                           (l) =>
@@ -1067,16 +1054,6 @@ export function ExactBionicApp({
 
                   {targetDropdownOpen && (
                     <div className="absolute end-0 top-full mt-2 z-50 w-64 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl space-y-1 max-h-72 flex flex-col animate-in fade-in-50 duration-150">
-                      <div className="relative pb-1">
-                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={targetSearch}
-                          onChange={(e) => setTargetSearch(e.target.value)}
-                          placeholder={t("select.search", siteLang)}
-                          className="w-full pl-8 pr-3 py-1 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:outline-none focus:border-black"
-                        />
-                      </div>
                       <div className="overflow-y-auto max-h-56 space-y-0.5 divide-y divide-gray-50">
                         {LANGUAGES.filter(
                           (l) =>
@@ -1249,13 +1226,14 @@ export function ExactBionicApp({
                             type="button"
                             role="switch"
                             aria-checked={isBionic}
+                            data-compact
                             onClick={() => setIsBionic(!isBionic)}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                            className={`relative inline-flex h-5 min-h-5 w-9 min-w-9 shrink-0 cursor-pointer items-center rounded-full p-0 transition-colors duration-200 ease-in-out focus:outline-none ${
                               isBionic ? "bg-[#1c1c1e]" : "bg-gray-300"
                             }`}
                           >
                             <span
-                              className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5 ${
+                              className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ml-0.5 ${
                                 isBionic ? "translate-x-4" : "translate-x-0"
                               }`}
                             />
@@ -1296,47 +1274,6 @@ export function ExactBionicApp({
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* BOTTOM 3 FEATURE HIGHLIGHTS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 pt-2 pb-2 text-center text-gray-800">
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
-                  <Zap className="size-4" />
-                </span>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-gray-900">
-                    {t("feature.fastTitle", siteLang)}
-                  </div>
-                  <div className="text-[11px] text-gray-500">{t("feature.fastDesc", siteLang)}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
-                  <Globe className="size-4" />
-                </span>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-gray-900">
-                    {t("feature.multiTitle", siteLang)}
-                  </div>
-                  <div className="text-[11px] text-gray-500">
-                    {t("feature.multiDesc", siteLang)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xs border border-gray-200/60 shadow-2xs">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gray-100 text-gray-800 shrink-0">
-                  <Sparkles className="size-4" />
-                </span>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-gray-900">
-                    {t("feature.aiTitle", siteLang)}
-                  </div>
-                  <div className="text-[11px] text-gray-500">{t("feature.aiDesc", siteLang)}</div>
                 </div>
               </div>
             </div>

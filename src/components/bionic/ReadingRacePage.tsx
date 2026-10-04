@@ -520,20 +520,6 @@ export function ReadingRacePage({
           ========================================================================= */}
       {viewMode === "lobby" && (
         <div className="rounded-3xl border border-gray-200/90 bg-white/95 p-6 sm:p-10 shadow-xl backdrop-blur-md text-center space-y-8 min-h-[480px] flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-700">
-              <Radio className="size-4 text-emerald-600 animate-pulse" />
-              <span>Canlı Çok Oyunculu Okuma Arenası</span>
-            </div>
-            <button
-              type="button"
-              onClick={onBackToTranslate}
-              className="text-xs text-gray-500 hover:text-black font-medium transition-colors"
-            >
-              Çeviriye Dön
-            </button>
-          </div>
-
           <div className="space-y-3 max-w-lg mx-auto">
             <div className="size-16 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 text-white flex items-center justify-center mx-auto shadow-md">
               <Swords className="size-8" />
