@@ -186,7 +186,7 @@ async function generatePassage(
         task: "write",
         messages,
         temperature: 0.85,
-        reasoningEffort: "low", // hız: düşünme süresi kısa, kalite stil kütüphanesinden gelir
+        reasoningEffort: "low", // hız: Gemini düşünme süresi kısa, kalite stil kütüphanesinden gelir
         maxTokens: Math.min(3200, Math.round(targetWords * 3) + 300),
         timeoutMs: 30_000,
         ...(signal ? { signal } : {}),
@@ -240,7 +240,11 @@ export async function generateReadingTestTexts(request: Request): Promise<Respon
 
     if (!process.env["GROQ_API_KEY"]) {
       return jsonOut(
-        { success: false, error: "Yapay zekâ servisi yapılandırılmamış (GROQ_API_KEY eksik)." },
+        {
+          success: false,
+          error:
+            "Yapay zekâ servisi yapılandırılmamış (GROQ_API_KEY eksik; değer olarak Gemini API anahtarı girilmeli).",
+        },
         503,
       );
     }

@@ -49,7 +49,7 @@ export async function analyzeDesignRequest(request: Request) {
         return Response.json(parsed);
       }
     } catch (e) {
-      console.warn("Groq görsel analizi başarısız, sezgisel sonuca dönülüyor:", e);
+      console.warn("Gemini görsel analizi başarısız, sezgisel sonuca dönülüyor:", e);
     }
   }
 

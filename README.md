@@ -15,7 +15,8 @@ Anahtarlar **opsiyoneldir**:
 
 | Değişken | Yoksa ne olur? |
 | --- | --- |
-| `GROQ_API_KEY` | Çeviri otomatik olarak ücretsiz MyMemory servisine düşer; AI asistan ve test üretimi çalışmaz |
+| `GROQ_API_KEY` | **Değer olarak Google Gemini API anahtarı girilir** (değişken adı geriye dönük uyumluluk için eski kaldı). Yoksa çeviri ücretsiz MyMemory servisine düşer; AI asistan ve test üretimi çalışmaz |
+| `GEMINI_MODEL` (opsiyonel) | Belirli bir Gemini modelini zorlar. Yoksa `gemini-3.5-flash` ve otomatik yedekler kullanılır |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (+ `SUPABASE_*`) | Giriş/kayıt devre dışı kalır; site "Hemen Dene" ile misafir olarak kullanılabilir, ayarlar yerelde saklanır |
 
 Supabase tablolarını `supabase/schema.sql` ile oluşturun.
@@ -27,7 +28,7 @@ Supabase tablolarını `supabase/schema.sql` ile oluşturun.
 - Bileşenlerde `const { t, siteLang, setSiteLang } = useSiteLanguage();` kullanın. Hook SSR ile
   uyumludur (ilk render varsayılan dil, mount sonrası kayıtlı/tarayıcı dili).
 - Dil değişince `<html lang>` ve `dir` otomatik güncellenir.
-- Çeviri API'si: `POST /api/translate` `{ text, source_lang, target_lang }` (dil kodu). Groq, ardından MyMemory
+- Çeviri API'si: `POST /api/translate` `{ text, source_lang, target_lang }` (dil kodu). Gemini, ardından MyMemory
   yedeği; uzun metinler satır yapısı korunarak parçalanır (`src/lib/translate-core.ts`).
 
 ## Emoji politikası
@@ -38,12 +39,13 @@ Kontrol: `npm run check:emoji`
 
 ## Yapay zeka katmanı
 
-- Tüm Groq çağrıları `src/lib/groq-core.server.ts` üzerinden geçer: model listesi `/models` ile canlı okunur,
-  tercih sırasına göre en fazla 3 model denenir; zaman aşımı, yedekleme, düşünme bloğu ve emoji temizliği vardır.
-- Groq eski modelleri düzenli kapatır (ör. `llama-3.3-70b-versatile` 16.08.2026'da). Sabit model adı gerekmez;
-  tercih sırası `PREFERRED` listesindedir.
+- Tüm yapay zekâ çağrıları (dosya/fonksiyon adı eski kaldı: `groqChat`) `src/lib/groq-core.server.ts` üzerinden
+  Google Gemini API'sine gider: model listesi `/models` ile canlı okunur, tercih sırasına göre en fazla 3 model
+  denenir; zaman aşımı, yedekleme, düşünme bloğu ve emoji temizliği vardır. Görsel analiz de aynı modelle yapılır.
+- Gemini 2.5 serisi 16 Ekim 2026'da kapanıyor; bu yüzden Gemini 3.x kullanılır. Tercih sırası `PREFERRED`
+  listesindedir, istenirse `GEMINI_MODEL` ile model zorlanır.
 - Asistan görev türüne göre uzunluk ayarlar: sohbet kısa, yazma/özet/çeviri görevleri eksiksiz çıktı verir.
-- Okuma testi metinleri kelime sayısı doğrulanarak üretilir (±%12 dışındaysa bir kez düzeltme istenir).
+- Okuma testi metinleri kelime sayısı doğrulanarak üretilir (±%18 dışındaysa bir kez düzeltme istenir).
 
 ## Mobil
 

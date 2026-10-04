@@ -297,7 +297,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
     };
   }, []);
 
-  // START TEXT GENERATION VIA REAL GROQ API
+  // START TEXT GENERATION VIA GEMINI (sunucu tarafı: /api/generate-reading-test)
   const handleStartTextGeneration = async () => {
     const promptToSend = generatorPrompt.trim();
     if (!promptToSend) {

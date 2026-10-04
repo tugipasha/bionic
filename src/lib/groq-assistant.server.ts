@@ -47,7 +47,7 @@ export async function callGroqAssistant(request: Request): Promise<Response> {
       {
         error: "GROQ_API_KEY_MISSING",
         message:
-          "Yapay zeka asistanı şu anda yapılandırılmamış. Lütfen sunucuya GROQ_API_KEY tanımlayın.",
+          "Yapay zeka asistanı şu anda yapılandırılmamış. Lütfen sunucuya GROQ_API_KEY (Gemini API anahtarı) tanımlayın.",
       },
       400,
     );
@@ -114,7 +114,7 @@ export async function callGroqAssistant(request: Request): Promise<Response> {
     if (!clean) return jsonResponse({ error: "EMPTY_RESPONSE", message: "Boş yanıt alındı." }, 502);
     return jsonResponse({ text: clean, model });
   } catch (error) {
-    console.error("Groq assistant hatası:", error);
+    console.error("Yapay zeka asistanı hatası:", error);
     const detail = error instanceof GroqError ? error.message : String(error);
     return jsonResponse(
       {

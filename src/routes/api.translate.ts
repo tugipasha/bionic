@@ -85,9 +85,9 @@ export const Route = createFileRoute("/api/translate")({
               groqApiKey,
               request.signal,
             );
-            return Response.json({ translation, engine: "groq-ai" });
+            return Response.json({ translation, engine: "gemini" });
           } catch (e) {
-            console.warn("Groq translate failed, falling back to MyMemory:", e);
+            console.warn("Gemini translate failed, falling back to MyMemory:", e);
           }
         }
 

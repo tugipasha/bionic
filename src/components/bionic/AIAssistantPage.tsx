@@ -65,7 +65,7 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isBionicFormat, setIsBionicFormat] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  const [currentModel, setCurrentModel] = useState<string>("Groq AI (Llama 3.3)");
+  const [currentModel, setCurrentModel] = useState<string>("Gemini AI");
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -229,13 +229,13 @@ export function AIAssistantPage({ onBackToTranslate }: AIAssistantPageProps) {
           ).padStart(2, "0")}`,
         };
         setMessages((prev) => [...prev, aiMsg]);
-        if (data.model) setCurrentModel(`Groq AI (${data.model})`);
+        if (data.model) setCurrentModel(`Gemini AI (${data.model})`);
 
         logAIInteraction({
           role: "assistant",
           prompt: query,
           response: data.text,
-          model: data.model || "llama-3.3-70b-versatile",
+          model: data.model || "gemini-3.5-flash",
         }).catch(() => {});
       } else {
         const fallbackText = data.message || "Yanıt alınamadı. Lütfen birazdan tekrar deneyin.";
