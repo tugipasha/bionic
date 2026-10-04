@@ -124,6 +124,8 @@ export function ExactBionicApp({
   const targetDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const translateRequestId = useRef(0);
+  const translateAbortRef = useRef<AbortController | null>(null);
+  const logTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { siteLang, setSiteLang: changeSiteLang } = useSiteLanguage();
 
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
@@ -213,6 +215,11 @@ export function ExactBionicApp({
       return;
     }
 
+    // Önceki (artık geçersiz) isteği iptal et
+    translateAbortRef.current?.abort();
+    const controller = new AbortController();
+    translateAbortRef.current = controller;
+
     const requestId = ++translateRequestId.current;
     setIsTranslating(true);
     let result: string | null = null;
@@ -220,6 +227,7 @@ export function ExactBionicApp({
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ text, source_lang: fromLang, target_lang: toLang }),
       });
       if (res.ok) {
@@ -230,17 +238,18 @@ export function ExactBionicApp({
       /* sunucu rotası yoksa istemci yedeğine geç */
     }
 
-    if (result === null) {
+    if (result === null && !controller.signal.aborted) {
       try {
         const src = resolveLanguage(fromLang);
         const tgt = resolveLanguage(toLang);
-        if (src && tgt) result = await translateWithMyMemory(text, src.iso, tgt.iso);
+        if (src && tgt)
+          result = await translateWithMyMemory(text, src.iso, tgt.iso, controller.signal);
       } catch {
         result = null;
       }
     }
 
-    // Daha yeni bir çeviri isteği başladıysa bu sonucu yoksay
+    // Daha yeni bir çeviri isteği başladıysa (kullanıcı yazmaya devam etti) bu sonucu yoksay
     if (requestId !== translateRequestId.current) return;
     setIsTranslating(false);
 
@@ -250,14 +259,39 @@ export function ExactBionicApp({
     }
 
     setTranslatedText(result);
-    logReadingActivity({
-      sourceLang: fromLang,
-      targetLang: toLang,
-      wordCount: text.split(/\s+/).filter(Boolean).length,
-      isBionic,
-      textSnippet: result,
-    }).catch(() => {});
+
+    // Anlık çeviride her duraklamada kayıt atmamak için: metin 4 sn sabit kalınca tek kayıt
+    if (logTimerRef.current) clearTimeout(logTimerRef.current);
+    const finalResult = result;
+    logTimerRef.current = setTimeout(() => {
+      logReadingActivity({
+        sourceLang: fromLang,
+        targetLang: toLang,
+        wordCount: text.split(/\s+/).filter(Boolean).length,
+        isBionic,
+        textSnippet: finalResult,
+      }).catch(() => {});
+    }, 4000);
   };
+
+  // ANLIK ÇEVİRİ: metin veya dil değiştiğinde, yazma durunca (450 ms) otomatik çevirir.
+  useEffect(() => {
+    if (!sourceText.trim()) {
+      translateAbortRef.current?.abort();
+      translateRequestId.current++;
+      setIsTranslating(false);
+      setTranslatedText("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      void handleTranslate(sourceText, sourceLang, targetLang);
+    }, 450);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceText, sourceLang, targetLang]);
+
+  // Bileşen kapanırken bekleyen isteği iptal et
+  useEffect(() => () => translateAbortRef.current?.abort(), []);
 
   // Site dili değişince çeviri hedef dilini de ona getir
   const handleSiteLanguageSelect = (code: string) => {
@@ -267,7 +301,6 @@ export function ExactBionicApp({
     if (newSource === code) newSource = code === "en" ? "tr" : "en";
     setSourceLang(newSource);
     setTargetLang(code);
-    if (sourceText.trim()) handleTranslate(sourceText, newSource, code);
     toast.success(t("toast.langChanged", code, { lang: meta.nativeName }));
   };
 
@@ -282,10 +315,6 @@ export function ExactBionicApp({
     const prevTranslatedText = translatedText;
     setSourceText(prevTranslatedText);
     setTranslatedText(prevSourceText);
-
-    if (prevTranslatedText.trim()) {
-      handleTranslate(prevTranslatedText, prevTarget, prevSource);
-    }
   };
 
   // Speech Recognition (Dictation)
@@ -319,7 +348,6 @@ export function ExactBionicApp({
         const transcript = event.results[0]?.[0]?.transcript ?? "";
         const updated = sourceText ? `${sourceText} ${transcript}` : transcript;
         setSourceText(updated);
-        handleTranslate(updated);
       };
 
       recognition.onerror = () => {
@@ -349,7 +377,6 @@ export function ExactBionicApp({
       if (content) {
         const clipped = content.slice(0, MAX_SOURCE_CHARS);
         setSourceText(clipped);
-        handleTranslate(clipped);
         toast.success(t("toast.fileLoaded", siteLang, { name: file.name }));
         if (content.length > MAX_SOURCE_CHARS) {
           toast.info(t("toast.tooLong", siteLang, { n: MAX_SOURCE_CHARS }));
@@ -1001,7 +1028,6 @@ export function ExactBionicApp({
                               setSourceLang(lang.code);
                               setSourceDropdownOpen(false);
                               setSourceSearch("");
-                              handleTranslate(undefined, lang.code, targetLang);
                             }}
                             className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors ${
                               sourceLang === lang.code
@@ -1068,7 +1094,6 @@ export function ExactBionicApp({
                               setTargetLang(lang.code);
                               setTargetDropdownOpen(false);
                               setTargetSearch("");
-                              handleTranslate(undefined, sourceLang, lang.code);
                             }}
                             className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors ${
                               targetLang === lang.code
@@ -1156,19 +1181,16 @@ export function ExactBionicApp({
                         <Upload className="size-4" />
                       </button>
 
-                      <button
-                        type="button"
-                        disabled={isTranslating}
-                        onClick={() => handleTranslate()}
-                        className="flex items-center gap-1.5 rounded-full bg-[#1c1c1e] hover:bg-black text-white px-4 sm:px-5 py-2 text-xs font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                      >
-                        <span>
-                          {isTranslating
-                            ? t("btn.translating", siteLang)
-                            : t("btn.translate", siteLang)}
+                      {isTranslating && (
+                        <span
+                          className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <span className="size-3 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                          {t("btn.translating", siteLang)}
                         </span>
-                        <ArrowRight className="size-3.5" />
-                      </button>
+                      )}
                     </div>
                   </div>
                 </div>

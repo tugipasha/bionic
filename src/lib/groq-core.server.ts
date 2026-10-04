@@ -83,10 +83,14 @@ export async function pickModels(
 }
 
 /** Model ailesine göre hız/kalite ayarları. Bilinmeyen alanlar 400 verirse bir sonraki denemede çıkarılır. */
-function familyParams(model: string, task: GroqTask): Record<string, unknown> {
+function familyParams(
+  model: string,
+  task: GroqTask,
+  effort?: "low" | "medium" | "high",
+): Record<string, unknown> {
   if (/gpt-oss/i.test(model)) {
     return {
-      reasoning_effort: task === "write" || task === "json" ? "medium" : "low",
+      reasoning_effort: effort ?? (task === "write" || task === "json" ? "medium" : "low"),
       include_reasoning: false,
     };
   }
@@ -164,6 +168,8 @@ export interface GroqChatOptions {
   /** Üretilecek en fazla token (düşünme tokenları dahil değildir; pay otomatik eklenir). */
   maxTokens?: number;
   json?: boolean;
+  /** gpt-oss modelleri için düşünme seviyesi (düşük = daha hızlı). */
+  reasoningEffort?: "low" | "medium" | "high";
   preferredModel?: string;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -199,7 +205,7 @@ export async function groqChat(opts: GroqChatOptions): Promise<GroqChatResult> {
           max_completion_tokens:
             (opts.maxTokens ?? 1200) + (/gpt-oss|qwen3/i.test(model) ? 1500 : 0),
         };
-        if (!lean) Object.assign(body, familyParams(model, opts.task));
+        if (!lean) Object.assign(body, familyParams(model, opts.task, opts.reasoningEffort));
         if (opts.json && !lean) body["response_format"] = { type: "json_object" };
 
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {

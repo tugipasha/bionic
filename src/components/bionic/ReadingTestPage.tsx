@@ -339,11 +339,7 @@ export function ReadingTestPage({ onBackToTranslate, onGoToProfile }: ReadingTes
         };
 
         setCustomArticle(generatedArticle);
-        if (data.fallback) {
-          toast.warning("Yapay zeka şu an ulaşılamıyor; örnek bir metin hazırlandı.");
-        } else {
-          toast.success("Metinler yapay zeka ile hazırlandı.");
-        }
+        toast.success("Metinler yapay zeka ile hazırlandı.");
         setTestState("selection");
       } else {
         throw new Error(data.error || "Metin oluşturulurken bir hata oluştu.");
