@@ -216,7 +216,12 @@ export interface GroqChatOptions {
 export interface GroqChatResult {
   text: string;
   model: string;
+  /** Gemini bitiş nedeni ("STOP", "MAX_TOKENS" ...). MAX_TOKENS = yanıt kesildi. */
+  finishReason?: string;
 }
+
+/** Gemini'de düşünme tokenları çıktı sınırından düşer; seviyeye göre pay bırakılır. */
+const THINK_PAD = { low: 1500, medium: 3000, high: 6000 } as const;
 
 export class GroqError extends Error {
   readonly status: number | undefined;
@@ -239,7 +244,7 @@ export async function groqChat(opts: GroqChatOptions): Promise<GroqChatResult> {
         const generationConfig: Record<string, unknown> = {
           temperature: opts.temperature ?? 0.6,
           // Gemini'de düşünme tokenları da bu sınıra dahildir; pay bırakılır.
-          maxOutputTokens: (opts.maxTokens ?? 1200) + 1500,
+          maxOutputTokens: (opts.maxTokens ?? 1200) + THINK_PAD[opts.reasoningEffort ?? "low"],
         };
         const body: Record<string, unknown> = { contents, generationConfig };
         if (systemInstruction) body["systemInstruction"] = systemInstruction;
@@ -272,7 +277,8 @@ export async function groqChat(opts: GroqChatOptions): Promise<GroqChatResult> {
               .map((p) => p.text ?? "")
               .join(""),
           );
-          if (text) return { text, model };
+          const finishReason = data.candidates?.[0]?.finishReason;
+          if (text) return { text, model, ...(finishReason ? { finishReason } : {}) };
           const why = data.promptFeedback?.blockReason ?? data.candidates?.[0]?.finishReason ?? "?";
           lastError = `${model}: boş yanıt (${why})`;
           break; // boş yanıtta aynı modeli tekrar deneme
